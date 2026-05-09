@@ -393,69 +393,62 @@ class _RosterPanelState extends State<_RosterPanel> {
             ],
           ]),
           const SizedBox(height: 8),
+          // SingleChildScrollView never asserts overflow — bounded by Expanded above
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Person rows — SingleChildScrollView clips without asserting
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: onDuty.take(6).map(_personRow).toList(),
-                    ),
-                  ),
-                ),
-                // WO section — pinned inside Expanded, never overflows
-                if (woList.isNotEmpty || leave.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  GestureDetector(
-                    onTap: () => setState(() => _woExpanded = !_woExpanded),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _cardBorder.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedRotation(
-                            turns: _woExpanded ? 0.5 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: const Icon(Icons.arrow_drop_down, color: _mutedColor, size: 16)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_woExpanded ? 'HIDE' : 'VIEW'} ${woList.length + leave.length} WEEK OFF',
-                            style: const TextStyle(color: _mutedColor, fontSize: 10,
-                                fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-                        ],
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...onDuty.take(6).map(_personRow),
+                  if (woList.isNotEmpty || leave.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () => setState(() => _woExpanded = !_woExpanded),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _cardBorder.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedRotation(
+                              turns: _woExpanded ? 0.5 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: const Icon(Icons.arrow_drop_down, color: _mutedColor, size: 16)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_woExpanded ? 'HIDE' : 'VIEW'} ${woList.length + leave.length} WEEK OFF',
+                              style: const TextStyle(color: _mutedColor, fontSize: 10,
+                                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: _woExpanded
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ...woList.map((e) => _offRow(e, 'WO', _colWO)),
-                                ...leave.map((e) => _offRow(e, 'LV', _colLeave)),
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      child: _woExpanded
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ...woList.map((e) => _offRow(e, 'WO', _colWO)),
+                                  ...leave.map((e) => _offRow(e, 'LV', _colLeave)),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
