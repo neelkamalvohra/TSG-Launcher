@@ -367,7 +367,7 @@ class _RosterPanelState extends State<_RosterPanel> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('TODAY\'S ROSTER',
@@ -393,7 +393,16 @@ class _RosterPanelState extends State<_RosterPanel> {
             ],
           ]),
           const SizedBox(height: 8),
-          ...onDuty.take(8).map(_personRow),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: onDuty.take(8).map(_personRow).toList(),
+              ),
+            ),
+          ),
           if (woList.isNotEmpty || leave.isNotEmpty) ...[
             const SizedBox(height: 4),
             GestureDetector(
