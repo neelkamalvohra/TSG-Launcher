@@ -1,0 +1,1359 @@
+{
+  "name": "Roster_Upload_Web_Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "roster-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5cb57f62-aa4a-4bfd-9152-b7f567f0300a",
+      "name": "Roster Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 2,
+      "webhookId": "604319d6-bf19-40a1-9285-17afff834a4e"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// ── Decode JWT (local — no network call) ─────────────────────────────────────\nconst body = $json.body || {};\nconst token = (body.token || '').trim();\n\nconst ROLE_LEVELS = {\n  trainee: 1, engineer: 2, sme: 3,\n  supervisor: 4, head: 5, admin: 6, superadmin: 7\n};\n\nif (!token) {\n  return { authValid: false, reason: 'No token provided', body };\n}\n\ntry {\n  const parts = token.split('.');\n  if (parts.length !== 3) throw new Error('Bad token structure');\n\n  const pad = s => s + '='.repeat((4 - s.length % 4) % 4);\n  const decode = s => JSON.parse(Buffer.from(pad(s.replace(/-/g,'+').replace(/_/g,'/')), 'base64').toString('utf8'));\n\n  const payload = decode(parts[1]);\n  const now = Math.floor(Date.now() / 1000);\n  if (payload.exp && payload.exp < now) {\n    return { authValid: false, reason: 'Token expired', body };\n  }\n\n  const groups = (payload.groups || []).map(g => g.replace(/^\\//, '').toLowerCase());\n  let highestRole = 'trainee';\n  let roleLevel = 1;\n  for (const g of groups) {\n    const lvl = ROLE_LEVELS[g];\n    if (lvl && lvl > roleLevel) { roleLevel = lvl; highestRole = g; }\n  }\n\n  return {\n    authValid: true,\n    username: payload.preferred_username || payload.sub || 'unknown',\n    name: payload.name || payload.preferred_username || '',\n    email: payload.email || '',\n    groups,\n    roleLevel,\n    highestRole,\n    canModifyOthers: roleLevel >= 3,\n    body\n  };\n} catch (err) {\n  return { authValid: false, reason: 'Token decode error: ' + err.message, body };\n}\n"
+      },
+      "id": "43d7712d-b36a-49f4-895f-f7a6b628da3b",
+      "name": "Decode JWT",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        220,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d52a41c4-77d0-4157-8975-7541163b0e92",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.authValid }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c545880c-c052-4a37-9b8a-3ac737b36913",
+      "name": "Auth Guard",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        440,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"unauthorized\", \"message\": \"⛔ Access denied. Token missing or expired.\" }",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "c374971d-cf5f-4ecd-83cd-fb7443aa7da1",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        660,
+        200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "62a8ec9d-5eab-417f-9789-8f50517a16e3",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "upload"
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "f5aad01a-70ea-4760-bb36-257dd45fb5a8",
+      "name": "Action Router",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        660,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3d57c987-76ee-45d5-9778-f680de7794f3",
+              "name": "data",
+              "value": "={{ $json.body.imageBase64 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a3341245-c56c-487a-8483-f7fd965a0ac3",
+      "name": "Extract Image",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        880,
+        -200
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data",
+        "options": {
+          "mimeType": "={{ $('Roster Upload Webhook').item.json.body.mimeType || 'image/jpeg' }}",
+          "fileName": "roster.jpg"
+        }
+      },
+      "id": "a93b401f-8e9f-4bdd-a917-cdf2cad36cc8",
+      "name": "Convert to File",
+      "type": "n8n-nodes-base.convertToFile",
+      "position": [
+        1100,
+        -200
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "purpose",
+              "value": "ocr"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5923064c-608f-4949-acca-33cf36d11032",
+      "name": "Upload to Mistral",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1320,
+        -200
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "mistralCloudApi",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mistral.ai/v1/files/{{ $json.id }}/url",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "expiry",
+              "value": "24"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e298ea9a-f271-4e05-a2bf-435470e8912d",
+      "name": "Get Signed URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1540,
+        -200
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "mistralCloudApi",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/ocr",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"model\": \"mistral-ocr-latest\",\n    \"document\": {\n        \"type\": \"image_url\",\n        \"image_url\": \"{{ $json.url }}\"\n    }\n}",
+        "options": {}
+      },
+      "id": "5c4e1963-776f-4c6b-a4c6-0cf617689aef",
+      "name": "Run OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1760,
+        -200
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "mistralCloudApi",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\n// Parse the OCR data\nconst ocrData = $input.first().json;\nconst markdown = ocrData.pages[0].markdown;\n\nfunction parseRosterTable(markdown) {\n  const lines = markdown.split('\\n');\n  let userNameIndex = -1;\n  let dateIndices = [];\n  let headerRowIndex = -1;\n\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i];\n    if (!line.trim() || line.includes('---')) continue;\n\n    if (line.includes('UserName') || line.includes('User Name')) {\n      headerRowIndex = i;\n      const headerRow = line.split('|').map(cell => cell.trim());\n      for (let j = 0; j < headerRow.length; j++) {\n        if (headerRow[j].includes('UserName') || headerRow[j].includes('User Name')) {\n          userNameIndex = j; break;\n        }\n      }\n      if (i > 0) {\n        const prevLine = lines[i - 1];\n        if (prevLine && !prevLine.includes('---')) {\n          const prevRow = prevLine.split('|').map(cell => cell.trim());\n          for (let j = 0; j < prevRow.length; j++) {\n            if (prevRow[j].match(/^\\d{2}-[A-Za-z]{3}$/) || prevRow[j].match(/^\\d{1,2}\\/\\d{1,2}/)) {\n              dateIndices.push({ index: j, date: prevRow[j] });\n            }\n          }\n        }\n      }\n      if (dateIndices.length === 0) {\n        if (i + 1 < lines.length) {\n          const nextLine = lines[i + 1];\n          if (nextLine && !nextLine.includes('---')) {\n            const nextRow = nextLine.split('|').map(cell => cell.trim());\n            for (let j = 0; j < nextRow.length; j++) {\n              if (nextRow[j].match(/^\\d{2}-[A-Za-z]{3}$/) || nextRow[j].match(/^\\d{1,2}\\/\\d{1,2}/)) {\n                dateIndices.push({ index: j, date: nextRow[j] });\n              }\n            }\n          }\n        }\n      }\n      break;\n    }\n  }\n\n  if (userNameIndex === -1 || dateIndices.length === 0) {\n    return { success: false, message: 'Could not find UserName or date columns in the roster table', data: [] };\n  }\n\n  const data = [];\n  for (let i = headerRowIndex + 1; i < lines.length; i++) {\n    const line = lines[i];\n    if (!line.trim() || line.includes('---')) continue;\n    const cells = line.split('|').map(cell => cell.trim());\n    const engineerName = cells[userNameIndex];\n    if (!engineerName || engineerName === '') continue;\n    for (const { index, date } of dateIndices) {\n      const shiftType = cells[index];\n      if (shiftType && shiftType !== '') {\n        const dateObj = new Date(date + '-2025');\n        const formattedDate = !isNaN(dateObj) ? dateObj.toISOString().split('T')[0] : date;\n        data.push({ engineer_name: engineerName, date: formattedDate, shift_type: shiftType });\n      }\n    }\n  }\n  return data.length > 0 ? { success: true, data, count: data.length, message: 'Roster parsed successfully' } : { success: false, message: 'No valid roster data found', data: [] };\n}\n\nconst result = parseRosterTable(markdown);\nreturn result;\n"
+      },
+      "id": "46b87a40-1b7f-4fc2-a7e6-5cd94f2e64ce",
+      "name": "Parse OCR Data",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        1980,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst rawData = $node[\"Parse OCR Data\"].json;\nif (!rawData || !rawData.data || !Array.isArray(rawData.data)) return rawData;\n\nconst invalidNames = ['---', 'UserName', 'Aug - 25', '', 'Total', 'Sheet1', 'Sheet2'];\nconst invalidShiftTypes = ['01-Aug','02-Aug','03-Aug','04-Aug','05-Aug','06-Aug','07-Aug',\n  '08-Aug','09-Aug','10-Aug','11-Aug','12-Aug','13-Aug','14-Aug','Sheet1','Sheet2','---'];\n\nconst cleanedData = rawData.data.filter(entry =>\n  !invalidNames.includes(entry.engineer_name.trim()) &&\n  !invalidShiftTypes.includes(entry.shift_type.trim())\n);\n\nreturn {\n  success: rawData.success,\n  data: cleanedData,\n  count: cleanedData.length,\n  originalCount: rawData.data.length,\n  filtered: rawData.data.length - cleanedData.length,\n  message: rawData.message\n};\n"
+      },
+      "id": "f9bd8e0d-cdec-4b11-ad15-ff7186a71ccd",
+      "name": "Clean Roster Data",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        2200,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node[\"Parse OCR Data\"].json[\"success\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "5e0e69d6-b0b6-4b70-be52-78ab26d7444a",
+      "name": "Valid Data?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        2420,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"error\", \"message\": \"❌ Could not read roster from image. Please retake with better lighting and framing.\" }",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "id": "2394ab21-7d8b-4615-9448-83d47dd781af",
+      "name": "Respond OCR Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        2640,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Web roster upload tables (created once, idempotent)\nCREATE TABLE IF NOT EXISTS roster_automation_flow_engineers (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(100) NOT NULL UNIQUE,\n  role VARCHAR(50) DEFAULT 'Engineer',\n  email VARCHAR(100),\n  phone VARCHAR(20),\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n);\nCREATE TABLE IF NOT EXISTS roster_automation_flow_roster (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  engineer_id INT NOT NULL,\n  date DATE NOT NULL,\n  shift_type VARCHAR(10) NOT NULL,\n  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  FOREIGN KEY (engineer_id) REFERENCES roster_automation_flow_engineers(id),\n  UNIQUE KEY unique_engineer_date (engineer_id, date)\n);\nCREATE TABLE IF NOT EXISTS roster_automation_flow_conflicts (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  engineer_id INT NOT NULL,\n  date DATE NOT NULL,\n  old_shift_type VARCHAR(10) NOT NULL,\n  new_shift_type VARCHAR(10) NOT NULL,\n  resolved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  resolved_by VARCHAR(100),\n  FOREIGN KEY (engineer_id) REFERENCES roster_automation_flow_engineers(id)\n);\nCREATE TABLE IF NOT EXISTS roster_web_temp_sessions (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  session_id VARCHAR(255) NOT NULL UNIQUE,\n  user_id VARCHAR(100) NOT NULL,\n  conflict_data JSON NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  expires_at TIMESTAMP NOT NULL,\n  INDEX idx_user_id (user_id),\n  INDEX idx_expires_at (expires_at)\n);",
+        "options": {}
+      },
+      "id": "dd201256-daad-4d8e-b669-5e66ab30b831",
+      "name": "Setup Tables",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        2640,
+        -400
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst rosterData = $node[\"Clean Roster Data\"].json.data;\nconst uniqueEngineers = new Set();\nfor (const entry of rosterData) {\n  const name = entry.engineer_name.trim();\n  if (name && name.length > 1) uniqueEngineers.add(name);\n}\nconst valueStrings = Array.from(uniqueEngineers).map(n => `('${n.replace(/'/g, \"\\\\'\")}')`);\nreturn { query: `INSERT IGNORE INTO roster_automation_flow_engineers (name) VALUES ${valueStrings.join(',')}` };\n"
+      },
+      "id": "d198d9c9-66ca-445a-b7ec-21fabeb7488e",
+      "name": "Generate Engineer Queries",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        2860,
+        -400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $node[\"Generate Engineer Queries\"].json[\"query\"] }}",
+        "options": {}
+      },
+      "id": "31ea4a3f-9284-461e-bd19-8dee2c2d92b8",
+      "name": "Insert Engineers",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        3080,
+        -400
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst rosterData = $node[\"Clean Roster Data\"].json.data;\nreturn [{ query: \"SELECT id, name FROM roster_automation_flow_engineers\", values: [] }];\n"
+      },
+      "id": "7a1fa390-0373-44ed-90a7-2fc783f4309c",
+      "name": "Get Engineer IDs Query",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        3300,
+        -400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {}
+      },
+      "id": "836fccbf-b9ef-4525-ba3e-a580edb227b3",
+      "name": "Get Engineer IDs",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        3520,
+        -400
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst rosterData = $node[\"Clean Roster Data\"].json.data;\nconst allInputs = $input.all();\nlet engineerIds = [];\nif (allInputs.length > 0) {\n  const first = allInputs[0].json;\n  engineerIds = Array.isArray(first) ? first : allInputs.map(i => i.json);\n}\nconst engineerNameToId = {};\nfor (const e of engineerIds) { if (e && e.name && e.id) engineerNameToId[e.name] = e.id; }\n\nconst queries = [];\nfor (const entry of rosterData) {\n  const engineerId = engineerNameToId[entry.engineer_name];\n  if (engineerId) {\n    queries.push({\n      engineer_id: engineerId,\n      engineer_name: entry.engineer_name,\n      date: entry.date,\n      new_shift_type: entry.shift_type,\n      query: `SELECT engineer_id, date, shift_type, last_updated FROM roster_automation_flow_roster WHERE engineer_id = ${engineerId} AND date = '${entry.date}'`\n    });\n  }\n}\nreturn queries;\n"
+      },
+      "id": "d62b10c5-f2c8-46f8-a693-0728c84a7635",
+      "name": "Generate Conflict Check Queries",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        3740,
+        -400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {}
+      },
+      "id": "ab42ec5f-8293-4242-b8f8-71f503bce541",
+      "name": "Check Conflicts",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        3960,
+        -400
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst allItems = $input.all();\nconst queryInputs = $(\"Generate Conflict Check Queries\").all();\nconst engineerIdsInputs = $(\"Get Engineer IDs\").all();\nlet engineerIds = [];\nif (engineerIdsInputs.length > 0) {\n  const first = engineerIdsInputs[0].json;\n  engineerIds = Array.isArray(first) ? first : engineerIdsInputs.map(i => i.json);\n}\nconst engineerNameToId = {};\nfor (const e of engineerIds) engineerNameToId[e.name] = e.id;\n\nconst queryResultsMap = new Map();\nfor (const item of allItems) {\n  if (item?.json?.engineer_id !== undefined && item?.json?.date !== undefined && item?.json?.shift_type !== undefined) {\n    queryResultsMap.set(`${item.json.engineer_id}_${item.json.date}`, item.json);\n  }\n}\n\nconst conflicts = [], existingEntries = [], newEntries = [];\nfor (const qi of queryInputs) {\n  const q = qi.json;\n  const existing = queryResultsMap.get(`${q.engineer_id}_${q.date}`);\n  if (!existing) {\n    newEntries.push({ engineer_id: q.engineer_id, engineer_name: q.engineer_name, date: q.date, shift_type: q.new_shift_type });\n  } else if (existing.shift_type === q.new_shift_type) {\n    existingEntries.push({ engineer_id: existing.engineer_id, engineer_name: q.engineer_name, date: q.date, shift_type: q.new_shift_type });\n  } else {\n    conflicts.push({ engineer_id: existing.engineer_id, engineer_name: q.engineer_name, date: q.date, old_shift_type: existing.shift_type, new_shift_type: q.new_shift_type });\n  }\n}\n\nreturn {\n  conflicts, existingEntries, newEntries,\n  hasConflicts: conflicts.length > 0,\n  hasNewEntries: newEntries.length > 0,\n  summary: { totalProcessed: queryInputs.length, conflicts: conflicts.length, existing: existingEntries.length, new: newEntries.length }\n};\n"
+      },
+      "id": "3bfe1a3a-8c31-4e77-80d5-4144b98cf139",
+      "name": "Analyze Conflicts",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        4180,
+        -400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node[\"Analyze Conflicts\"].json[\"hasConflicts\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "4def95be-9d56-4ed6-b825-3abd94378b5b",
+      "name": "Has Conflicts?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        4400,
+        -400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst analysisData = $node[\"Analyze Conflicts\"].json;\nconst newEntries = analysisData.newEntries || [];\nconst username = $('Decode JWT').first().json.username;\nconst sqls = newEntries.map(e =>\n  `INSERT INTO roster_automation_flow_roster (engineer_id, date, shift_type, last_updated) VALUES (${e.engineer_id}, '${e.date}', '${e.shift_type}', CURRENT_TIMESTAMP)`\n);\nreturn {\n  analysisData, newEntrySqlStatements: sqls, newEntriesCount: newEntries.length,\n  username, conflictsCount: analysisData.conflicts.length,\n  conflicts: analysisData.conflicts, newEntries, existingEntries: analysisData.existingEntries,\n  summary: analysisData.summary\n};\n"
+      },
+      "id": "bf493c7a-c479-4a34-af21-94891f95019c",
+      "name": "Process New Entries Web",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        4620,
+        -600
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.newEntrySqlStatements && $json.newEntrySqlStatements.length > 0 ? $json.newEntrySqlStatements.join('; ') + ';' : 'SELECT 1 as no_new_entries;' }}",
+        "options": {}
+      },
+      "id": "2dda9ef1-acd3-401c-b6e1-53448e90df14",
+      "name": "Execute New Entries",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        4840,
+        -600
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.responseBody }}",
+        "options": {
+          "responseCode": 200,
+          "responseContentType": "application/json"
+        }
+      },
+      "id": "5b0e12ec-fada-4c48-b799-f00261d737be",
+      "name": "Respond No Conflicts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        5060,
+        -600
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst analysisData = $node[\"Analyze Conflicts\"].json;\nconst newEntries = analysisData.newEntries || [];\nconst username = $('Decode JWT').first().json.username;\nconst sqls = newEntries.map(e =>\n  `INSERT INTO roster_automation_flow_roster (engineer_id, date, shift_type, last_updated) VALUES (${e.engineer_id}, '${e.date}', '${e.shift_type}', CURRENT_TIMESTAMP)`\n);\nreturn {\n  analysisData, newEntrySqlStatements: sqls, newEntriesCount: newEntries.length,\n  username, conflictsCount: analysisData.conflicts.length,\n  conflicts: analysisData.conflicts, newEntries, existingEntries: analysisData.existingEntries,\n  summary: analysisData.summary\n};\n"
+      },
+      "id": "e53d4a83-bcbf-4dd4-a91a-a38823765bf9",
+      "name": "Process New Entries With Conflicts",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        4620,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.newEntrySqlStatements && $json.newEntrySqlStatements.length > 0 ? $json.newEntrySqlStatements.join('; ') + ';' : 'SELECT 1 as no_new_entries;' }}",
+        "options": {}
+      },
+      "id": "414be262-0bf6-4a83-9008-e947da855d10",
+      "name": "Execute New Entries Conflict",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        4840,
+        -200
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst analysisData = $node[\"Analyze Conflicts\"].json;\nconst username = $('Decode JWT').first().json.username;\nconst sessionId = 'conflict_' + username + '_' + Date.now();\nconst conflictData = {\n  conflicts: analysisData.conflicts,\n  newEntries: analysisData.newEntries,\n  existingEntries: analysisData.existingEntries,\n  summary: analysisData.summary,\n  username, sessionId,\n  newEntriesAlreadyProcessed: (analysisData.newEntries || []).length\n};\nconst expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0,19).replace('T',' ');\nreturn { sessionId, username, conflictData: JSON.stringify(conflictData), expiresAt, originalData: analysisData };\n"
+      },
+      "id": "1b87027b-bf7b-45e8-8e08-18ae078ca93d",
+      "name": "Store Conflict Data Web",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        5060,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO roster_web_temp_sessions (session_id, user_id, conflict_data, expires_at) VALUES ('{{ $json.sessionId }}', '{{ $json.username }}', '{{ $json.conflictData.replace(/'/g, \"\\\\'\") }}', '{{ $json.expiresAt }}');",
+        "options": {}
+      },
+      "id": "01ff03df-b43f-4055-9485-56886a26ede7",
+      "name": "Execute Store Conflict",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        5280,
+        -200
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.responseBody }}",
+        "options": {
+          "responseCode": 200,
+          "responseContentType": "application/json"
+        }
+      },
+      "id": "35bbc883-9a56-484f-af2c-d82f06ebfa95",
+      "name": "Respond Conflict Report",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        5500,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM roster_web_temp_sessions WHERE session_id = '{{ $json.body.sessionId }}' AND expires_at > UTC_TIMESTAMP() ORDER BY created_at DESC LIMIT 1;",
+        "options": {}
+      },
+      "id": "cfb02324-cde2-4c52-aedf-3b6bf50f3ce4",
+      "name": "Retrieve Conflict Data Web",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        880,
+        200
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "40011b9d-cf8c-4c7e-b919-a9d5926d7602",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "d8978e8a-ddcd-4653-879b-6b1a7c8c3929",
+      "name": "Check Data Exists",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1100,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"error\", \"message\": \"❌ Session expired or not found. Please upload the roster image again.\" }",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "eb18964d-2338-411f-90ff-94381879f3ef",
+      "name": "Respond Session Expired",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1320,
+        400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst body = $('Roster Upload Webhook').first().json.body || {};\nconst decision = (body.decision || '').toLowerCase().trim();\nconst username = $('Decode JWT').first().json.username;\nconst queryResults = $('Retrieve Conflict Data Web').all();\n\nif (!queryResults || queryResults.length === 0 || !queryResults[0].json) {\n  return { action: 'no_data', message: '❌ Session expired. Please upload the roster image again.', username };\n}\n\nconst rec = queryResults[0].json;\nconst storedData = typeof rec.conflict_data === 'string' ? JSON.parse(rec.conflict_data) : rec.conflict_data;\nconst sessionId = rec.session_id;\nconst isApproved = decision === 'yes' || decision === 'approve';\nconst isRejected = decision === 'no'  || decision === 'reject';\n\nif (isApproved) {\n  return { action: 'approved', message: '✅ Approved! Applying updates…', username, conflictData: storedData, sessionId };\n} else if (isRejected) {\n  return { action: 'rejected', message: '❌ Changes rejected.', username, sessionId };\n} else {\n  return { action: 'invalid', message: 'Invalid decision. Expected \"yes\" or \"no\".', username };\n}\n"
+      },
+      "id": "ec04008b-f2ce-40f9-af36-65ae0cc502f3",
+      "name": "Process User Response Web",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        1320,
+        200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "39a9c2cf-def5-495a-8844-6207adc2fedb",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "approved"
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "52d01543-c345-4920-bc5a-5a62409c1602",
+      "name": "Check Response Web",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1540,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst inputData = $input.all()[0].json;\nconst conflictData = inputData.conflictData;\nconst conflicts = conflictData.conflicts || [];\nconst username = inputData.username || 'app_user';\nconst sessionId = inputData.sessionId;\nconst sqlOperations = [];\n\nfor (const c of conflicts) {\n  sqlOperations.push(`UPDATE roster_automation_flow_roster SET shift_type = '${c.new_shift_type}', last_updated = CURRENT_TIMESTAMP WHERE engineer_id = ${c.engineer_id} AND date = '${c.date}'`);\n  sqlOperations.push(`INSERT INTO roster_automation_flow_conflicts (engineer_id, date, old_shift_type, new_shift_type, resolved_by, resolved_at) VALUES (${c.engineer_id}, '${c.date}', '${c.old_shift_type}', '${c.new_shift_type}', '${username}', CURRENT_TIMESTAMP)`);\n}\n\nlet message = '✅ Roster Updated Successfully!\\n\\n';\nif (conflicts.length > 0) {\n  message += `🔄 Conflicts Resolved: ${conflicts.length}\\n`;\n  conflicts.forEach(c => { message += `  • ${c.engineer_name}: ${c.old_shift_type} → ${c.new_shift_type} (${c.date})\\n`; });\n}\n\nreturn { sqlOperations, message, conflictsResolved: conflicts.length, username, sessionId };\n"
+      },
+      "id": "def7fed6-7d43-4d80-a9f5-cab828d5f395",
+      "name": "Apply Updates Web",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        1760,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $node[\"Apply Updates Web\"].json.sqlOperations && $node[\"Apply Updates Web\"].json.sqlOperations.length > 0 ? $node[\"Apply Updates Web\"].json.sqlOperations.join('; ') + ';' : 'SELECT 1 as no_operations;' }}",
+        "options": {}
+      },
+      "id": "3b055193-2681-477e-a26b-97b54fe0dbcd",
+      "name": "Execute DB Updates",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        1980,
+        0
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM roster_web_temp_sessions WHERE session_id = '{{ $node[\"Apply Updates Web\"].json.sessionId }}' OR expires_at < NOW();",
+        "options": {}
+      },
+      "id": "f55cce87-244f-410c-8729-aeea273392fb",
+      "name": "Cleanup Temp Data",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        2200,
+        0
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.responseBody }}",
+        "options": {
+          "responseCode": 200,
+          "responseContentType": "application/json"
+        }
+      },
+      "id": "8d1ccf56-cffa-4d11-b40e-148d42e5958e",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        2420,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM roster_web_temp_sessions WHERE session_id = '{{ $json.sessionId }}' OR expires_at < NOW();",
+        "options": {}
+      },
+      "id": "07a788e7-1769-4c02-9f05-466bc4d08cb0",
+      "name": "Cleanup Rejected Data",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        1760,
+        400
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"rejected\", \"message\": \"❌ Changes rejected. Original roster preserved.\" }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "2db6a7ae-4877-48a8-9ca2-d80490ac6369",
+      "name": "Respond Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1980,
+        400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst data = $('Process New Entries Web').first().json;\nconst responseBody = JSON.stringify({\n  status: 'success',\n  message: '✅ Roster updated! ' + (data.newEntriesCount || 0) + ' new entries added. ' + (data.existingEntries || []).length + ' already existed.',\n  newEntries: data.newEntriesCount || 0,\n  existingUnchanged: (data.existingEntries || []).length\n});\nreturn { responseBody };\n"
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Build No Conflicts Response",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        4950,
+        -800
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst sessionData = $('Store Conflict Data Web').first().json;\nconst analysisData  = $('Analyze Conflicts').first().json;\nconst newData       = $('Process New Entries With Conflicts').first().json;\nconst responseBody = JSON.stringify({\n  status: 'conflict',\n  sessionId: sessionData.sessionId,\n  message: '⚠️ Found ' + (analysisData.conflicts || []).length + ' conflict(s) requiring approval.',\n  conflicts: analysisData.conflicts || [],\n  newEntriesInserted: newData.newEntriesCount || 0,\n  existingUnchanged: (analysisData.existingEntries || []).length,\n  summary: analysisData.summary || {}\n});\nreturn { responseBody };\n"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Build Conflict Report Response",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        5390,
+        -200
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "\nconst data = $('Apply Updates Web').first().json;\nconst responseBody = JSON.stringify({\n  status: 'success',\n  message: data.message || '✅ Roster updated.',\n  conflictsResolved: data.conflictsResolved || 0\n});\nreturn { responseBody };\n"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Build Success Response",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        2310,
+        0
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Roster Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Decode JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode JWT": {
+      "main": [
+        [
+          {
+            "node": "Auth Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Guard": {
+      "main": [
+        [
+          {
+            "node": "Action Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Router": {
+      "main": [
+        [
+          {
+            "node": "Extract Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retrieve Conflict Data Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Upload to Mistral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Mistral": {
+      "main": [
+        [
+          {
+            "node": "Get Signed URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Signed URL": {
+      "main": [
+        [
+          {
+            "node": "Run OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run OCR": {
+      "main": [
+        [
+          {
+            "node": "Parse OCR Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OCR Data": {
+      "main": [
+        [
+          {
+            "node": "Clean Roster Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Roster Data": {
+      "main": [
+        [
+          {
+            "node": "Valid Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Data?": {
+      "main": [
+        [
+          {
+            "node": "Setup Tables",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OCR Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Tables": {
+      "main": [
+        [
+          {
+            "node": "Generate Engineer Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Engineer Queries": {
+      "main": [
+        [
+          {
+            "node": "Insert Engineers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Engineers": {
+      "main": [
+        [
+          {
+            "node": "Get Engineer IDs Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Engineer IDs Query": {
+      "main": [
+        [
+          {
+            "node": "Get Engineer IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Engineer IDs": {
+      "main": [
+        [
+          {
+            "node": "Generate Conflict Check Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Conflict Check Queries": {
+      "main": [
+        [
+          {
+            "node": "Check Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Analyze Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Has Conflicts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Conflicts?": {
+      "main": [
+        [
+          {
+            "node": "Process New Entries With Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process New Entries Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process New Entries Web": {
+      "main": [
+        [
+          {
+            "node": "Execute New Entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute New Entries": {
+      "main": [
+        [
+          {
+            "node": "Build No Conflicts Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process New Entries With Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Execute New Entries Conflict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute New Entries Conflict": {
+      "main": [
+        [
+          {
+            "node": "Store Conflict Data Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Conflict Data Web": {
+      "main": [
+        [
+          {
+            "node": "Execute Store Conflict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Store Conflict": {
+      "main": [
+        [
+          {
+            "node": "Build Conflict Report Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Conflict Data Web": {
+      "main": [
+        [
+          {
+            "node": "Check Data Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Data Exists": {
+      "main": [
+        [
+          {
+            "node": "Process User Response Web",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Session Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process User Response Web": {
+      "main": [
+        [
+          {
+            "node": "Check Response Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Response Web": {
+      "main": [
+        [
+          {
+            "node": "Apply Updates Web",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cleanup Rejected Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Updates Web": {
+      "main": [
+        [
+          {
+            "node": "Execute DB Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute DB Updates": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Temp Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Temp Data": {
+      "main": [
+        [
+          {
+            "node": "Build Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Rejected Data": {
+      "main": [
+        [
+          {
+            "node": "Respond Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build No Conflicts Response": {
+      "main": [
+        [
+          {
+            "node": "Respond No Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Conflict Report Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Conflict Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

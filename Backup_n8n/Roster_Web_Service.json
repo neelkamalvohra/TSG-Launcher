@@ -1,0 +1,283 @@
+{
+  "name": "Roster_Web_Service",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM roster_automation_flow_roster;",
+        "options": {}
+      },
+      "id": "2f4213cb-c9f0-4520-a238-7688a58cc56c",
+      "name": "roster_automation_flow_roster",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        64,
+        80
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "content": "## SQL Queris",
+        "height": 704,
+        "width": 624
+      },
+      "id": "ba161d45-f0f7-4dde-8494-570e0904bfb1",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SHOW TABLES IN automation_flow;",
+        "options": {}
+      },
+      "id": "471be601-b731-4c9f-bd0b-fa0fbcc597b9",
+      "name": "automation_flow",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        64,
+        304
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "content": "## I'm a note \n\n{\n\"Tables_in_automation_flow\": \n\"roster_automation_flow_conflicts\"\n},\n{\n\"Tables_in_automation_flow\": \n\"roster_automation_flow_engineers\"\n},\n{\n\"Tables_in_automation_flow\": \n\"roster_automation_flow_roster\"\n},\n{\n\"Tables_in_automation_flow\": \n\"roster_automation_flow_temp_conflicts\"\n},",
+        "height": 688,
+        "width": 928
+      },
+      "id": "8ab4ef50-d203-4e27-a626-ef9d62a2dea1",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        784,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM roster_automation_flow_engineers;",
+        "options": {}
+      },
+      "id": "e8a013c4-85f7-4823-841f-0665ad7fd659",
+      "name": "roster_automation_flow_engineers",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        320,
+        80
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=UTF-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "05bd53da-f274-4884-80b3-c3a7aed93776",
+      "name": "Site",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1248,
+        1344
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "path": "roster",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5d831641-048d-4dee-9464-8dc42d73c8e6",
+      "name": "Your WebPage",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        432,
+        1344
+      ],
+      "webhookId": "99651075-3d83-4d67-963f-06c7a5e6a3d3",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SET time_zone = '+05:30';\nSELECT \n  r.id,\n  e.name as employee_name,\n  r.shift_type as shift,\n  e.phone as mobile,\n  e.email,\n  r.date\nFROM roster_automation_flow_roster r\nINNER JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id\nWHERE r.date = '{{ $('Your WebPage').item.json.query.date || $now.format('yyyy-MM-dd') }}'\nORDER BY r.id ASC;",
+        "options": {}
+      },
+      "id": "5099e144-2ba3-410a-a657-5643c69d6852",
+      "name": "Fetch Roster Data",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        704,
+        1344
+      ],
+      "typeVersion": 2.4,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "﻿// Roster HTML Builder - Mobile Optimised v3\nconst webhookData = $('Your WebPage').item.json || {};\nconst selectedDate = webhookData.query?.date ||\n  new Date(new Date().toLocaleString(\"en-US\",{timeZone:\"Asia/Kolkata\"})).toISOString().split('T')[0];\nconst rosterData = $input.all();\n\nconst PRIORITY = {A:1,AWH:1.5,B:2,BWH:2.5,WO:3,L:4,G:5};\n\nfunction shiftDisplay(s){\n  const u=(s||'').toUpperCase();\n  return u==='AWH'?'A (WFH)':u==='BWH'?'B (WFH)':(s||'N/A');\n}\nfunction shiftCls(s){\n  const u=(s||'').toUpperCase();\n  if(u==='A'||u==='AWH') return 'shift-a';\n  if(u==='B'||u==='BWH') return 'shift-b';\n  if(u==='WO') return 'shift-wo';\n  if(u==='L')  return 'shift-l';\n  if(u==='G')  return 'shift-g';\n  return 'shift-unknown';\n}\nfunction fmtDate(ds){\n  const d=new Date(ds+'T00:00:00');\n  return d.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'});\n}\nfunction addDays(ds,n){\n  const d=new Date(ds+'T00:00:00');\n  d.setDate(d.getDate()+n);\n  return d.toISOString().split('T')[0];\n}\n\nconst valid=(rosterData||[]).filter(i=>i.json&&i.json.employee_name);\nconst employeeCount=valid.length;\nlet gShiftCount=0;\nlet tableRows='';\n\nconst EMPTY=`<tr><td colspan=\"5\">\n  <div class=\"empty-state\">\n    <span class=\"empty-icon\">📅</span>\n    <div class=\"empty-title\">No roster data</div>\n    <div class=\"empty-sub\">No employees scheduled for this date</div>\n  </div>\n</td></tr>`;\n\nif(valid.length>0){\n  const sorted=[...valid].sort((a,b)=>\n    (PRIORITY[(a.json.shift||'').toUpperCase()]||999)-\n    (PRIORITY[(b.json.shift||'').toUpperCase()]||999)\n  );\n  const nonG=sorted.filter(i=>(i.json.shift||'').toUpperCase()!=='G');\n  const gArr=sorted.filter(i=>(i.json.shift||'').toUpperCase()==='G');\n  gShiftCount=gArr.length;\n\n  let idx=1;\n  function makeRow(item,hidden){\n    const d=item.json;\n    const ph=d.mobile?`<a href=\"tel:${d.mobile}\" class=\"ph-lnk\">${d.mobile}</a>`:'N/A';\n    const em=d.email ?`<a href=\"mailto:${d.email}\" class=\"em-lnk\">${d.email}</a>`:'N/A';\n    const hAttr=hidden?' style=\"display:none\"':'';\n    const gCls=hidden?' g-row':'';\n    return `<tr class=\"r-row${gCls}\"${hAttr}>\n  <td class=\"num\" data-label=\"\">${idx++}</td>\n  <td class=\"nm\"  data-label=\"Name\">${d.employee_name||'N/A'}</td>\n  <td data-label=\"Shift\"><span class=\"badge ${shiftCls(d.shift)}\">${shiftDisplay(d.shift)}</span></td>\n  <td data-label=\"Mobile\">${ph}</td>\n  <td class=\"em-col\" data-label=\"Email\">${em}</td>\n</tr>`;\n  }\n\n  tableRows=nonG.map(i=>makeRow(i,false)).join('');\n  if(gShiftCount>0){\n    tableRows+=`<tr class=\"g-tog-row\"><td colspan=\"5\">\n  <button class=\"g-tog-btn\" id=\"g-btn\" onclick=\"toggleG()\">\n    👁 Show G Shift (${gShiftCount})\n  </button>\n</td></tr>`;\n    tableRows+=gArr.map(i=>makeRow(i,true)).join('');\n  }\n} else {\n  tableRows=EMPTY;\n}\n\nconst prevDateStr=addDays(selectedDate,-1);\nconst nextDateStr=addDays(selectedDate,+1);\nconst displayDate=fmtDate(selectedDate);\nconst istTime=new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'});\n\nconst html=`<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\n<title>TSG Roster</title>\n<style>\n:root{\n  --bg:linear-gradient(135deg,#667eea,#764ba2);\n  --card:#fff;--txt:#1a1a2e;--sub:#4a5568;--muted:#718096;\n  --bdr:#e2e8f0;--hvr:rgba(59,130,246,.08);--acc:#3b82f6;\n  --hdr:linear-gradient(135deg,#3b82f6,#7c3aed);\n  --shd:0 4px 24px rgba(0,0,0,.12);\n}\n[data-theme=dark]{\n  --bg:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);\n  --card:#1e2433;--txt:#f0f4ff;--sub:#c4cce0;--muted:#8896b0;\n  --bdr:#2d3a52;--hvr:rgba(99,179,237,.1);--acc:#60a5fa;\n  --shd:0 4px 24px rgba(0,0,0,.4);\n}\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{max-width:100%;overflow-x:hidden}\nbody{\n  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\n  background:var(--bg);min-height:100vh;padding:8px;\n}\n.wrap{\n  max-width:900px;margin:0 auto;background:var(--card);\n  border-radius:16px;overflow:hidden;box-shadow:var(--shd);\n  animation:fi .4s ease;\n  display:flex;flex-direction:column;height:100vh;\n}\n\n/* HEADER */\n.hdr{\n  background:var(--hdr);color:#fff;\n  padding:14px 12px 12px;text-align:center;position:sticky;top:0;z-index:10;\n  flex-shrink:0;\n}\n.thm-btn{\n  position:absolute;top:10px;right:10px;\n  background:rgba(255,255,255,.18);border:none;border-radius:50%;\n  width:36px;height:36px;cursor:pointer;font-size:17px;\n  display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2;\n}\n.thm-btn:hover{background:rgba(255,255,255,.3);transform:scale(1.1)}\n.ttl{\n  font-size:1.1rem;font-weight:700;line-height:1.3;\n  padding:0 46px 10px;\n  text-shadow:0 2px 6px rgba(0,0,0,.2);\n}\n\n/* DATE ROW */\n.d-row{\n  display:flex;align-items:center;justify-content:center;gap:10px;\n  background:rgba(255,255,255,.13);border-radius:50px;\n  padding:7px 14px;margin:0 auto;\n  width:fit-content;max-width:calc(100% - 12px);\n}\n.nav-btn{\n  background:rgba(255,255,255,.2);border:none;border-radius:50%;\n  width:34px;height:34px;min-width:34px;cursor:pointer;\n  font-size:13px;color:#fff;\n  display:flex;align-items:center;justify-content:center;\n  transition:.2s;flex-shrink:0;\n}\n.nav-btn:hover{background:rgba(255,255,255,.32);transform:scale(1.08)}\n.nav-btn:active{transform:scale(.93)}\n.d-lbl{\n  position:relative;display:inline-block;\n  font-size:.9rem;font-weight:700;color:#ffd166;\n  padding:4px 8px;border-radius:8px;\n  user-select:none;white-space:nowrap;transition:background .2s;\n}\n.d-lbl:hover{background:rgba(255,255,255,.15)}\n.d-lbl::after{content:' 📅';font-size:.75em;opacity:.8}\n#dp{\n  position:absolute;inset:0;opacity:0;cursor:pointer;\n  width:100%;height:100%;border:none;background:none;\n}\n\n/* TABLE WRAPPER */\n.body{padding:12px 8px 8px;overflow-y:auto;flex:1;}\n.tbl-w{\n  border-radius:10px;overflow:hidden;\n  border:1px solid var(--bdr);\n  box-shadow:0 2px 8px rgba(0,0,0,.06);\n  width:100%;\n}\n\n/* TABLE — desktop (>700px): all 5 columns */\ntable{\n  width:100%;border-collapse:collapse;\n  table-layout:fixed;\n}\ncol.c-num  {width:34px}\ncol.c-name {width:auto}\ncol.c-shft {width:82px}\ncol.c-mob  {width:118px}\ncol.c-em   {width:170px}\n\nthead{background:var(--hdr);color:#fff}\nthead th{\n  padding:10px 8px;font-size:.7rem;font-weight:700;\n  text-transform:uppercase;letter-spacing:.5px;text-align:left;\n  overflow:hidden;white-space:nowrap;\n}\nthead th:first-child{text-align:center}\ntbody tr{border-bottom:1px solid var(--bdr);transition:background .15s}\ntbody tr:last-child{border-bottom:none}\ntbody tr:hover{background:var(--hvr)}\ntd{\n  padding:9px 8px;font-size:.84rem;color:var(--txt);\n  vertical-align:middle;overflow:hidden;\n}\n.num{font-weight:700;color:var(--acc);text-align:center;font-size:.78rem}\n.nm{font-weight:600;word-break:break-word}\n.badge{\n  display:inline-block;padding:3px 8px;border-radius:20px;\n  font-size:.73rem;font-weight:700;text-transform:uppercase;\n  letter-spacing:.3px;white-space:nowrap;\n}\n.shift-a{background:#ffe0e9;color:#be185d}\n.shift-b{background:#d0f4f8;color:#0e7490}\n.shift-wo{background:#dcfce7;color:#15803d}\n.shift-l{background:#fef9c3;color:#a16207}\n.shift-g,.shift-unknown{background:#f1f5f9;color:#64748b}\n[data-theme=dark] .shift-a{background:#4a1225;color:#fda4af}\n[data-theme=dark] .shift-b{background:#0c3040;color:#67e8f9}\n[data-theme=dark] .shift-wo{background:#052e16;color:#86efac}\n[data-theme=dark] .shift-l{background:#422006;color:#fde68a}\n[data-theme=dark] .shift-g,[data-theme=dark] .shift-unknown{background:#1e293b;color:#94a3b8}\n.ph-lnk,.em-lnk{color:var(--acc);text-decoration:none;font-size:.8rem;word-break:break-all}\n.ph-lnk:hover,.em-lnk:hover{text-decoration:underline}\n\n/* G-shift toggle */\n.g-tog-row td{text-align:center;padding:8px;background:var(--hvr)}\n.g-tog-btn{\n  background:var(--acc);color:#fff;border:none;border-radius:20px;\n  padding:6px 16px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.2s;\n}\n.g-tog-btn:hover{opacity:.85;transform:scale(1.04)}\n\n/* empty state */\n.empty-state{text-align:center;padding:36px 16px}\n.empty-icon{font-size:2rem;display:block;margin-bottom:8px}\n.empty-title{font-size:.9rem;font-weight:600;color:var(--sub);margin-bottom:4px}\n.empty-sub{font-size:.8rem;color:var(--muted)}\n\n/* ── NARROW TABLE (≤700px, >480px): hide email, fit 4 cols ── */\n@media(max-width:700px){\n  col.c-em{width:0}\n  .em-col,thead th:nth-child(5){display:none}\n  col.c-num  {width:30px}\n  col.c-shft {width:78px}\n  col.c-mob  {width:108px}\n}\n\n/* ── CARD LAYOUT (≤480px) ── */\n@media(max-width:480px){\n  table,thead,tbody,th,td,tr{display:block}\n  thead{display:none}\n  .tbl-w{border:none;background:transparent;box-shadow:none;border-radius:0;overflow:visible}\n  tbody tr.r-row{\n    background:var(--card);border:1px solid var(--bdr);\n    border-radius:12px;margin-bottom:8px;padding:11px 13px;\n    position:relative;box-shadow:0 1px 4px rgba(0,0,0,.07);\n  }\n  td{\n    padding:3px 0;display:flex;align-items:flex-start;\n    font-size:.87rem;border:none !important;\n  }\n  td::before{\n    content:attr(data-label);\n    font-weight:700;font-size:.67rem;text-transform:uppercase;\n    letter-spacing:.4px;color:var(--muted);\n    min-width:56px;padding-top:2px;flex-shrink:0;\n  }\n  td.num{position:absolute;top:10px;right:11px;padding:0;font-size:.75rem;font-weight:700;color:var(--acc)}\n  td.num::before{display:none}\n  td.nm{\n    display:block;font-size:.97rem;font-weight:700;\n    padding-bottom:7px !important;padding-right:32px !important;\n    border-bottom:1px solid var(--bdr) !important;margin-bottom:4px;\n  }\n  td.nm::before{display:none}\n  /* Show email in card mode */\n  .em-col{display:flex !important}\n  .g-tog-row,.g-tog-row td{\n    display:block;border:none !important;padding:5px 0 !important;background:transparent;\n  }\n  .g-tog-row td::before{display:none}\n}\n\n/* FOOTER */\n.foot{\n  text-align:center;padding:10px;font-size:.72rem;\n  color:var(--muted);border-top:1px solid var(--bdr);\n}\n\n@keyframes fi{\n  from{opacity:0;transform:translateY(12px)}\n  to{opacity:1;transform:translateY(0)}\n}\n</style>\n</head>\n<body>\n<div class=\"wrap\">\n  <div class=\"hdr\">\n    <button class=\"thm-btn\" onclick=\"toggleTheme()\" id=\"thm-btn\">🌙</button>\n    <div class=\"ttl\">Technical Support Group<br>(Roster)</div>\n    <div class=\"d-row\">\n      <button class=\"nav-btn\" onclick=\"goDate('${prevDateStr}')\" title=\"Prev\">&#9664;</button>\n      <span class=\"d-lbl\">${displayDate}<input type=\"date\" id=\"dp\" value=\"${selectedDate}\" onchange=\"goDate(this.value)\"></span>\n      <button class=\"nav-btn\" onclick=\"goDate('${nextDateStr}')\" title=\"Next\">&#9654;</button>\n    </div>\n  </div>\n\n  <div class=\"body\">\n    <div class=\"tbl-w\">\n      <table>\n        <colgroup>\n          <col class=\"c-num\"><col class=\"c-name\"><col class=\"c-shft\">\n          <col class=\"c-mob\"><col class=\"c-em\">\n        </colgroup>\n        <thead>\n          <tr>\n            <th>#</th><th>Employee Name</th><th>Shift</th>\n            <th>Mobile</th><th>Email</th>\n          </tr>\n        </thead>\n        <tbody>${tableRows}</tbody>\n      </table>\n    </div>\n  </div>\n\n  <div class=\"foot\">⏰ ${istTime} &nbsp;·&nbsp; Made by Neel</div>\n</div>\n\n<script>\nlet theme='dark';\n(function(){\n  // 1. prefer theme from URL param (survives navigation)\n  const urlP=new URLSearchParams(window.location.search);\n  const urlTheme=urlP.get('theme');\n  if(urlTheme==='light'||urlTheme==='dark'){theme=urlTheme;}\n  else{try{theme=localStorage.getItem('roster-theme')||'dark';}catch(e){}}\n  applyT(theme);\n})();\nfunction applyT(t){\n  document.documentElement.setAttribute('data-theme',t);\n  document.getElementById('thm-btn').textContent=t==='dark'?'☀️':'🌙';\n}\nfunction toggleTheme(){\n  theme=theme==='dark'?'light':'dark';\n  applyT(theme);\n  try{localStorage.setItem('roster-theme',theme);}catch(e){}\n  // keep URL in sync so nav-btn arrows preserve new theme\n  const u=new URL(window.location.href);\n  u.searchParams.set('theme',theme);\n  history.replaceState(null,'',u.toString());\n}\n// openDP kept as no-op for backwards compat; picker is now directly overlaid\nfunction openDP(){}\nlet gVis=false;\nfunction toggleG(){\n  gVis=!gVis;\n  document.querySelectorAll('.g-row').forEach(r=>{r.style.display=gVis?'':'none';});\n  const b=document.getElementById('g-btn');\n  if(b) b.textContent=gVis?'🙈 Hide G Shift (${gShiftCount})':'👁 Show G Shift (${gShiftCount})';\n}\nfunction goDate(d){\n  const w=document.querySelector('.wrap');\n  w.style.opacity='.5';\n  setTimeout(function(){w.style.opacity='1';},8000);\n  const tok=new URLSearchParams(window.location.search).get('token')||'';\n  window.location.href=window.location.pathname+'?date='+encodeURIComponent(d)+'&theme='+encodeURIComponent(theme)+(tok?'&token='+encodeURIComponent(tok):'');\n}\ndocument.addEventListener('keydown',e=>{\n  if(e.key==='ArrowLeft') goDate('${prevDateStr}');\n  else if(e.key==='ArrowRight') goDate('${nextDateStr}');\n  else if(e.key==='t'||e.key==='T') toggleTheme();\n});\nwindow.addEventListener('pageshow',function(e){\n  if(e.persisted) document.querySelector('.wrap').style.opacity='1';\n});\n</script>\n</body>\n</html>`;\n\nreturn [{json:{html, selectedDate, employeeCount}}];\n"
+      },
+      "id": "48952581-2fe5-4a2f-9f84-9495bcf7b196",
+      "name": "HTML Builder",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        976,
+        1344
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "### ▶️ START HERE: The Webhook\n\nThis node is the entry point for your webpage.\n\n1.  **Activate** the workflow.\n2.  Copy the **Production URL** from this node.\n3.  Paste the URL into your browser to see the result.\n\n\nThe `Path` is set to `tutorial/your-webpage`, but you can change it to whatever you like.",
+        "height": 460,
+        "width": 360,
+        "color": 6
+      },
+      "id": "1f66a5fd-bdfe-41ca-b481-da96e2ff236d",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        304,
+        1024
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "#### 🎨 CUSTOMIZE YOUR WEBPAGE HERE\n\nThis node sends the HTML content back to the browser.\n\n**To use your own design:**\n1.  **Replace the HTML in the `Body` field** with your own code. You can put anything here: HTML, CSS, and even `<script>` tags.\n2.  Ensure the `Content-Type` header under **Options → Response Headers** is set to `text/html`. This is crucial for the browser to render the page correctly.",
+        "height": 460,
+        "width": 360,
+        "color": 7
+      },
+      "id": "d54994cf-54c9-48d3-9e36-d9ce4a2dff61",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1360,
+        1024
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Your WebPage": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.captainparth.com",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "2409:40c0:2b0:3f1:fc8a:f93d:5cd3:face",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9f588b550ca7b822-BOS",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "60479693-fc28-4304-b55b-8e75531e9756",
+            "connection": "keep-alive",
+            "cookie": {
+              "__redacted": true,
+              "reason": "node_defined_field",
+              "canReveal": false
+            },
+            "priority": "u=0, i",
+            "sec-ch-ua": "\"Microsoft Edge\";v=\"147\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"147\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-user": "?1",
+            "upgrade-insecure-requests": "1",
+            "x-forwarded-for": "2409:40c0:2b0:3f1:fc8a:f93d:5cd3:face",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {
+            "date": "2026-05-03",
+            "theme": "light"
+          },
+          "body": {},
+          "webhookUrl": "https://n8n.captainparth.com/webhook/roster",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "HTML Builder": {
+      "main": [
+        [
+          {
+            "node": "Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your WebPage": {
+      "main": [
+        [
+          {
+            "node": "Fetch Roster Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Roster Data": {
+      "main": [
+        [
+          {
+            "node": "HTML Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "11ea278f-ad23-49f4-845c-f839ffd385a3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d10d09f118527a80b7986709f764d39440903a271990b0b8458414a3ab85c79f"
+  },
+  "id": "4nKxvmEXx3jt3Gjt",
+  "tags": []
+}

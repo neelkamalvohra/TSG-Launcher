@@ -1,0 +1,890 @@
+{
+  "name": "test-chat",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ output: $json.output }) }}",
+        "options": {}
+      },
+      "id": "371c8515-bd3c-46d7-a7aa-e6151df9204c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        17776,
+        256
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tsgchat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f9ed4071-4833-400d-8c77-8ae6ee8a8600",
+      "name": "Chat Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        15024,
+        320
+      ],
+      "typeVersion": 2,
+      "webhookId": "74ed9a26-54dc-435a-809b-e9748981e757"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "158a0b91-534d-4745-b10e-8a7c97050861",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.body.chatInput }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "973269d4-958c-4850-8bda-5e65d5512c5f",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        15248,
+        320
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"output\": \"Hi, how can I help you today?\"\n}",
+        "options": {}
+      },
+      "id": "6391c5a6-80d0-4c51-817d-de2782c4510a",
+      "name": "Respond With Initial Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        15472,
+        528
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-quick-match-001",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "fdecba70-14ac-4dc7-92b0-61c7ced26c78",
+      "name": "Has Quick Match?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        15904,
+        128
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql_query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        16128,
+        16
+      ],
+      "id": "7418f24e-d24a-4c48-8351-9694a996b812",
+      "name": "Execute Quick SQL",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  qr.id, \n  qr.query_pattern, \n  qr.query_keywords, \n  qr.sql_query, \n  qr.response_template, \n  qr.priority\nFROM roster_automation_flow_quick_responses qr\nWHERE qr.is_active = 1\n  -- Exclude action/modification keywords (should go to AI agent instead)\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%change%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%update%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%move%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%switch%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%modify%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%edit%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '%swap%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% from % to %'\n  -- Exclude declarative statements (name + is/was/will be + shift/status)\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% is on %'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% was on %'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% will be on %'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% should be on %'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% is %wo%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% is %leave%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% is %morning%'\n  AND LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') NOT LIKE '% is %evening%'\n  -- Match keywords in query_keywords JSON array\n  AND (\n    LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[0]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[1]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[2]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[3]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[4]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[5]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[6]'))), '%')\n    OR LOWER('{{ $json.quickResponse.replace(/'/g, \"''\") }}') LIKE CONCAT('%', LOWER(JSON_UNQUOTE(JSON_EXTRACT(qr.query_keywords, '$[7]'))), '%')\n  )\nORDER BY qr.priority ASC\nLIMIT 1",
+        "options": {
+          "replaceEmptyStrings": false
+        }
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        15696,
+        128
+      ],
+      "id": "7f9af205-4965-4cc4-99c2-d87f751b193f",
+      "name": "Check Quick Response",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced Format Quick Response with role-based filtering and comprehensive formatting\n// Based on your existing sophisticated roster formatting logic\n\n// Get the quick response metadata from Has Quick Match node\nconst quickResponseData = $('Has Quick Match?').first().json;\nconst responseTemplate = quickResponseData.response_template;\n\n// Get all SQL results from Execute Quick SQL node\nconst rosterData = $input.all();\n\n// Check if we have enhanced roster data (with employee_role)\nconst hasEnhancedData = rosterData.length > 0 && rosterData[0].json && rosterData[0].json.employee_role;\n\nlet formattedResults = '';\n\nif (!rosterData || rosterData.length === 0) {\n  formattedResults = 'No results found.';\n} else if (hasEnhancedData) {\n  // Use enhanced formatting with role-based filtering\n  \n  // Shift mapping: A -> MORNING, B -> EVENING\n  const shiftMapping = {\n    'A': 'MORNING',\n    'B': 'EVENING'\n  };\n  \n  // Unavailable shift types mapping\n  const unavailableMapping = {\n    'L': 'On Leave',\n    'WO': 'Weekly Off',\n    'CO': 'Comp Off',\n    'WH': 'WFH',\n    'PH': 'Public Holiday'\n  };\n  \n  // Group engineers by shift type\n  const shiftGroups = {};\n  const unavailableGroups = {};\n  \n  // Get the actual date from the roster data (for today/tomorrow queries)\n  const rosterDate = rosterData[0].json.date; // e.g., \"2025-11-28\"\n  const dateObj = new Date(rosterDate + 'T00:00:00'); // Parse as local date\n  \n  // Check if roster date is weekend or public holiday\n  const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday\n  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday\n  \n  // Check if it's a public holiday (count PH shifts)\n  const phCount = rosterData.filter(item => item.json.shift === 'PH').length;\n  const totalCount = rosterData.length;\n  const isPublicHoliday = phCount > (totalCount * 0.5); // If more than 50% have PH shift\n  \n  // Process each roster entry with role-based filtering\n  for (const item of rosterData) {\n    const roster = item.json; // Access the actual data from n8n's structure\n    const employeeName = roster.employee_name;\n    const employeeRole = roster.employee_role;\n    const shift = roster.shift;\n    \n    // MORNING SHIFT & EVENING SHIFT: Only show \"Engineer\" role\n    if (shift === 'A' || shift === 'B' || shift === 'G') {\n      if (employeeRole === 'Engineer') {\n        // Map G shift to EVENING (same as B shift)\n        const shiftType = shift === 'G' ? 'EVENING' : shiftMapping[shift];\n        \n        if (!shiftGroups[shiftType]) {\n          shiftGroups[shiftType] = [];\n        }\n        shiftGroups[shiftType].push(employeeName);\n      }\n    }\n    // AWH (Morning WFH): Only show \"Engineer\" role\n    else if (shift === 'AWH') {\n      if (employeeRole === 'Engineer') {\n        const engineerName = employeeName + ' (WFH)';\n        const shiftType = 'MORNING';\n        \n        if (!shiftGroups[shiftType]) {\n          shiftGroups[shiftType] = [];\n        }\n        shiftGroups[shiftType].push(engineerName);\n      }\n    }\n    // BWH (Evening WFH): Only show \"Engineer\" role\n    else if (shift === 'BWH') {\n      if (employeeRole === 'Engineer') {\n        const engineerName = employeeName + ' (WFH)';\n        const shiftType = 'EVENING';\n        \n        if (!shiftGroups[shiftType]) {\n          shiftGroups[shiftType] = [];\n        }\n        shiftGroups[shiftType].push(engineerName);\n      }\n    }\n    // WH (Work From Home - legacy): Only show \"Engineer\" role, defaults to EVENING\n    else if (shift === 'WH') {\n      if (employeeRole === 'Engineer') {\n        const engineerName = employeeName + ' (WFH)';\n        const shiftType = 'EVENING';\n        \n        if (!shiftGroups[shiftType]) {\n          shiftGroups[shiftType] = [];\n        }\n        shiftGroups[shiftType].push(engineerName);\n      }\n    }\n    // ENGINEERS NOT AVAILABLE: Show \"Engineer\" and \"SME\" roles only\n    else if (unavailableMapping[shift] && !['WH', 'AWH', 'BWH'].includes(shift)) {\n      if (employeeRole === 'Engineer' || employeeRole === 'SME') {\n        const unavailableType = unavailableMapping[shift];\n        \n        if (!unavailableGroups[unavailableType]) {\n          unavailableGroups[unavailableType] = [];\n        }\n        unavailableGroups[unavailableType].push(employeeName);\n      }\n    }\n  }\n  \n  // Format the date from roster data (uses actual date from SQL query)\n  const formattedDate = dateObj.toLocaleDateString('en-US', { \n    weekday: 'short', \n    month: 'short', \n    day: 'numeric',\n    timeZone: 'Asia/Kolkata'\n  });\n  \n  // Determine if we should hide unavailable section\n  const hideUnavailableSection = isWeekend || isPublicHoliday;\n  \n  let message = `🗓️ **Daily Roster - ${formattedDate}**\\n\\n`;\n  \n  // Available Engineers Section\n  if (Object.keys(shiftGroups).length === 0) {\n    if (isWeekend || isPublicHoliday) {\n      message += \"🎉 **Weekend/Holiday** - No regular shifts scheduled\\n\\n\";\n    } else {\n      message += \"⚠️ No engineers scheduled for today (A/B shifts only).\\n\\n\";\n    }\n  } else {\n    message += \"👨‍💼 **ENGINEERS ON DUTY**\\n\\n\";\n    \n    // Show shifts in order: MORNING, EVENING\n    const orderedShifts = ['MORNING', 'EVENING'];\n    \n    orderedShifts.forEach(shiftType => {\n      if (shiftGroups[shiftType] && shiftGroups[shiftType].length > 0) {\n        const engineers = shiftGroups[shiftType];\n        const shiftCount = engineers.length;\n        message += `🔧 **${shiftType} SHIFT (${shiftCount})**\\n`;\n        engineers.forEach(name => {\n          message += `   • ${name}\\n`;\n        });\n        message += \"\\n\";\n      }\n    });\n  }\n  \n  // Unavailable Engineers Section (only show on weekdays and non-public holidays)\n  // Show only Engineers and SMEs who are not available\n  if (!hideUnavailableSection && Object.keys(unavailableGroups).length > 0) {\n    message += \"🚫 **ENGINEERS NOT AVAILABLE**\\n\\n\";\n    \n    // Show unavailable types in order\n    const orderedUnavailable = ['On Leave', 'Weekly Off', 'Comp Off', 'WFH', 'Public Holiday'];\n    \n    orderedUnavailable.forEach(unavailableType => {\n      if (unavailableGroups[unavailableType] && unavailableGroups[unavailableType].length > 0) {\n        const engineers = unavailableGroups[unavailableType];\n        let icon = '';\n        switch(unavailableType) {\n          case 'On Leave': icon = '🏖️'; break;\n          case 'Weekly Off': icon = '🛌'; break;\n          case 'Comp Off': icon = '💤'; break;\n          case 'WFH': icon = '🏠'; break;\n          case 'Public Holiday': icon = '🎉'; break;\n        }\n        \n        message += `${icon} **${unavailableType.toUpperCase()}**\\n`;\n        engineers.forEach(name => {\n          message += `   • ${name}\\n`;\n        });\n        message += \"\\n\";\n      }\n    });\n  }\n  \n  // Calculate totals\n  const totalOnDuty = Object.values(shiftGroups).reduce((sum, engineers) => sum + engineers.length, 0);\n  const totalUnavailable = Object.values(unavailableGroups).reduce((sum, engineers) => sum + engineers.length, 0);\n  \n  formattedResults = message;\n  \n} else {\n  // Fallback to simple formatting for backward compatibility\n  // Check if results have name and shift_type (roster query)\n  if (rosterData[0].json && rosterData[0].json.name && rosterData[0].json.shift_type) {\n    // Group by shift_type\n    const groupedByShift = {};\n    rosterData.forEach(item => {\n      const shift = item.json.shift_type;\n      if (!groupedByShift[shift]) {\n        groupedByShift[shift] = [];\n      }\n      groupedByShift[shift].push(item.json.name);\n    });\n    \n    // Format grouped results\n    const shiftNames = {\n      'A': 'Morning (8AM-5PM)',\n      'AWH': 'Morning WFH (8AM-5PM)',\n      'B': 'Evening (11AM-8PM)',\n      'BWH': 'Evening WFH (11AM-8PM)',\n      'G': 'General (10AM-7PM)',\n      'GWH': 'General WFH (10AM-7PM)',\n      'WH': 'General (10AM-7PM)',\n      'WFH': 'Work From Home',\n      'WO': 'Weekly Off',\n      'L': 'Leave',\n      'PH': 'Public Holiday',\n      'CO': 'Comp Off',\n      'EWH': 'Evening WFH'\n    };\n    \n    formattedResults = Object.keys(groupedByShift)\n      .sort()\n      .map(shift => {\n        const shiftLabel = shiftNames[shift] || shift;\n        const engineers = groupedByShift[shift].join(', ');\n        return `${shiftLabel}: ${engineers}`;\n      })\n      .join('\\n');\n  } \n  // Check if results have only name (simple list query)\n  else if (rosterData[0].json && rosterData[0].json.name) {\n    const names = [];\n    for (let i = 0; i < rosterData.length; i++) {\n      if (rosterData[i].json && rosterData[i].json.name) {\n        names.push(rosterData[i].json.name);\n      }\n    }\n    formattedResults = names.join(', ');\n  }\n  // Generic fallback for any other structure\n  else {\n    formattedResults = rosterData.map(item => {\n      if (item.json) {\n        return Object.values(item.json).join(' | ');\n      }\n      return JSON.stringify(item);\n    }).join('\\n');\n  }\n}\n\n// For enhanced formatting, ignore template and return formatted message directly\nlet finalResponse;\nif (hasEnhancedData) {\n  finalResponse = formattedResults; // Use the enhanced formatted message\n} else {\n  // Use template replacement for backward compatibility\n  finalResponse = responseTemplate || 'Results: {{results}}';\n  if (finalResponse && finalResponse.includes('{{results}}')) {\n    finalResponse = finalResponse.replace('{{results}}', formattedResults);\n  }\n  if (finalResponse && finalResponse.includes('{{date}}')) {\n    const currentDate = new Date().toLocaleDateString('en-GB');\n    finalResponse = finalResponse.replace('{{date}}', currentDate);\n  }\n}\n\nreturn {\n  json: {\n    formatted_response: finalResponse || formattedResults,\n    query_pattern: quickResponseData.query_pattern || 'Unknown',\n    result_count: rosterData.length,\n    enhanced_formatting: hasEnhancedData,\n    debug_data_sample: rosterData[0]?.json || 'No data'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16352,
+        16
+      ],
+      "id": "7d5f1d39-5378-4fcd-bf4b-8f20afe09dac",
+      "name": "Format Quick Response"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SET time_zone = '+05:30'; {{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        17088,
+        256
+      ],
+      "id": "37e00943-9102-41eb-a92d-be6713bafc24",
+      "name": "Execute SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "VjtgGblPuDxrETLe",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f8cfa5f1-7dc1-49b3-ab27-1e36fec90aa8",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "SELECT",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            },
+            {
+              "id": "a9b8c7d6-e5f4-3a2b-1c0d-9e8f7a6b5c4d",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "UPDATE",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        16720,
+        272
+      ],
+      "id": "1521d691-4ac4-4abc-a426-71741619cd42",
+      "name": "Is query valid and executable?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Question: {{ $('Set User Input').item.json.chatInput }}\n\nSQL Query Executed: {{ $('AI Agent1').first().json.output }}\n\nQuery Results: {{ JSON.stringify($input.all()) }}\n\nCurrent date & time: {{ new Date().toString() }}",
+        "options": {
+          "systemMessage": "You are a helpful roster database assistant that formats query results into user-friendly responses.\n\n## Your Task\nYou will receive:\n1. User's original question\n2. SQL query that was executed\n3. Raw query results from database\n\nYour job is to format the results into a clear, friendly response with proper formatting.\n\n## Shift Type Labels\n- **A**: Morning (8AM-5PM)\n- **B**: Evening (11AM-8PM)\n- **G**: General Shift\n- **AWH**: Morning WFH\n- **BWH**: Evening WFH\n- **WH**: Work from Home\n- **WO**: Weekly Off\n- **L**: Leave\n- **PH**: Public Holiday\n- **CO**: Comp Off\n\n## Formatting Rules\n\n### For SELECT Queries (Query Results):\n- Group by date if multiple dates\n- Show day of week with date (e.g., \"Fri, Nov 29\")\n- Use bullet points for employee names\n- Convert shift codes to readable labels\n- Include total count\n- Use emojis: 📊 🗓️ 📝\n\n**Example:**\n```\n📊 **Query Results**\n\n🗓️ **Fri, Nov 29**\n   • Rajendra Padol - Morning (8AM-5PM)\n   • Kalpesh Mahadik - Evening (11AM-8PM)\n\n📝 Total: 2 record(s)\n```\n\n### For UPDATE Queries (Modifications):\n- Check affectedRows in results\n- If affectedRows > 0: Show success message\n- If affectedRows = 0: Show \"no changes\" message\n- Use emojis: ✅ ⚠️ 📝\n\n**Success Example:**\n```\n✅ **Success!**\n\nYour request has been processed.\n📝 2 record(s) updated.\n```\n\n**No Changes Example:**\n```\n⚠️ **No Changes Made**\n\nNo matching records found. Please check:\n• Employee name is correct\n• Date/day is valid\n• Current shift matches\n```\n\n### For Empty Results:\n```\n📭 **No Results Found**\n\nNo matching records in the database for your query.\n```\n\n### For COUNT Queries:\n```\n📊 **Result:** 15\n```\n\n## Important\n- Keep responses concise and friendly\n- Use proper date formatting (Asia/Kolkata timezone)\n- Always use emojis for visual appeal\n- Output ONLY the formatted response text\n- Do NOT include any explanations or meta-text"
+        }
+      },
+      "id": "1ee25b33-6155-4555-9e3c-b5a0e92ef98b",
+      "name": "Response Formatter",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        17408,
+        256
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        16128,
+        528
+      ],
+      "id": "a27b6aa4-7ccd-43c2-9de0-ff2b7ef38bbc",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "Hn1Zy0BamEmI8uVg",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        17648,
+        624
+      ],
+      "id": "eb6795a6-9568-4886-83ae-64f5eb8b2394",
+      "name": "Response Formatter Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "Hn1Zy0BamEmI8uVg",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Chat Trigger').item.json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        16320,
+        528
+      ],
+      "id": "ebbf6ca4-0744-4b73-b286-3f2edf70e2e9",
+      "name": "Window Buffer Memory1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User: {{ $('Set User Input').item.json.username }} (Role: {{ $('Set User Input').item.json.userRole }})\n\nUser Message: {{ $('Set User Input').item.json.chatInput }}\n\nCurrent date & time: {{ new Date().toString() }}",
+        "options": {
+          "systemMessage": "You are an expert SQL query generator that accurately converts natural language requests into MySQL queries for the roster database.\n\nThe roster database has two tables:\n\n1. roster_automation_flow_engineers:\n   - id: int, primary key, auto_increment\n   - name: varchar(100), not null, unique\n   - email: varchar(100)\n   - phone: varchar(20)\n   - role: enum('Engineer', 'SME'), not null\n   - created_at: timestamp, default current_timestamp\n   - updated_at: timestamp, default current_timestamp on update\n\n2. roster_automation_flow_roster:\n   - id: int, primary key, auto_increment\n   - engineer_id: int, not null, foreign key to roster_automation_flow_engineers.id\n   - date: date, not null\n   - shift_type: varchar(10), not null\n   - last_updated: timestamp, default current_timestamp on update\n\n## Responsibilities and Goals\n- Convert natural language inputs into syntactically and logically correct MySQL queries (SELECT or UPDATE).\n- Use JOINs to combine tables when necessary for queries involving both engineers and their rosters.\n- For availability queries, check the date and shift_type in the roster table.\n- For all queries involving roster availability, always include e.name, r.date, r.shift_type in the SELECT clause.\n- Use MySQL date functions like CURDATE(), DATE_ADD(), DATE_SUB() for relative dates.\n- For shift amendment requests, generate UPDATE queries with proper validation.\n- Only generate SELECT or UPDATE queries; do not generate INSERT, DELETE, or any other modifying queries.\n- Output only the SQL query, no additional text or explanations.\n\n## Key Information and Instructions\n- Queries should be safe and optimized.\n- Use LIMIT for large result sets, default to 10 unless specified.\n- Ensure proper JOINs and WHERE clauses.\n- Select relevant columns like name, date, shift_type to provide comprehensive information for summarization.\n- Possible values for shift_type: A, B, G, AWH, BWH, WH, WO, L, PH, CO.\n- SHIFT TYPE DEFINITIONS AND ROLE RESTRICTIONS:\n  * A: Engineer only - Morning shift 8AM-5PM\n  * B: Engineer only - Evening shift 11AM-8PM\n  * G: Both roles - SME: 10AM-7PM, Engineer: 11AM-5PM (Evening shift)\n  * WH: Both roles - SME: Work from Home, Engineer: Work from Home B shift\n  * AWH: Engineer only - Work from Home Morning shift\n  * BWH: Engineer only - Work from Home Evening shift\n  * WO: Both roles - Weekly Off\n  * L: Both roles - Leave\n  * PH: Both roles - Public Holiday\n  * CO: Engineer only - Complementary Off\n- Map user queries to exact shift_type values (e.g., \"morning shift\" -> 'A' or 'AWH').\n- WEEKDAY() returns 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday.\n- CRITICAL FOR WEEKDAY QUERIES: When user asks about a specific day of week (Sunday, Monday, etc.), you MUST use the exact CASE statement pattern from the examples below. Copy it exactly and only change the weekday number.\n- FOR UPDATE QUERIES: Always use JOIN with engineers table to identify the engineer_id by name. Calculate the date properly for weekday references.\n- **CRITICAL FOR NAME MATCHING**: Users may provide partial names (e.g., 'Rajendra' or 'Kalpesh'). ALWAYS use LIKE with wildcards for name matching: `e.name LIKE '%PartialName%'` instead of `e.name = 'FullName'`. This ensures queries work even when user doesn't provide full names.\n- **CRITICAL: DECLARATIVE STATEMENTS ARE UPDATE COMMANDS**:\n  * When user states '[Name] is/was/will be on [shift] [date]' or '[Name] is/was/will be [shift]', this is a DECLARATIVE STATEMENT to modify the roster, NOT a query to check current status.\n  * Pattern: [Employee Name] + [is/was/will be/should be] + [on] + [shift type] + [date/today/tomorrow/day of week]\n  * These statements express what the roster SHOULD BE, not asking what it currently IS.\n  * Generate UPDATE queries to SET the shift_type to match the declared status.\n  * Questions use interrogative words (who/what/when/which/is there/are there) - those are SELECT queries.\n  * Statements use declarative structure (name + is/was + status) - those are UPDATE queries.\n\n## Examples\n### Input: Who is available today?\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = CURDATE();\n\n### Input: List engineers on morning shift tomorrow.\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND r.shift_type IN ('A', 'AWH');\n\n### Input: Who will be available on Sunday?\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = CASE WHEN WEEKDAY(CURDATE()) < 6 THEN DATE_ADD(CURDATE(), INTERVAL 6 - WEEKDAY(CURDATE()) DAY) WHEN WEEKDAY(CURDATE()) = 6 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL 6 DAY) END AND r.shift_type NOT IN ('WO', 'L', 'PH');\n\n### Input: Who is working on Monday?\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = CASE WHEN WEEKDAY(CURDATE()) = 0 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL (7 - WEEKDAY(CURDATE())) DAY) END AND r.shift_type NOT IN ('WO', 'L', 'PH');\n\n### Input: Who is on evening shift on Friday?\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = CASE WHEN WEEKDAY(CURDATE()) < 4 THEN DATE_ADD(CURDATE(), INTERVAL 4 - WEEKDAY(CURDATE()) DAY) WHEN WEEKDAY(CURDATE()) = 4 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL 11 - WEEKDAY(CURDATE()) DAY) END AND r.shift_type IN ('B', 'BWH');\n\n### Input: How many engineers are there?\nOutput: SELECT COUNT(*) FROM roster_automation_flow_engineers;\n\n### Input: Who is available on 2023-10-01?\nOutput: SELECT e.name, r.date, r.shift_type FROM roster_automation_flow_engineers e JOIN roster_automation_flow_roster r ON e.id = r.engineer_id WHERE r.date = '2023-10-01';\n\n### Input: Change Kalpesh shift on Thursday from B to A\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'A' WHERE e.name LIKE '%Kalpesh%' AND r.date = CASE WHEN WEEKDAY(CURDATE()) < 3 THEN DATE_ADD(CURDATE(), INTERVAL 3 - WEEKDAY(CURDATE()) DAY) WHEN WEEKDAY(CURDATE()) = 3 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL 10 - WEEKDAY(CURDATE()) DAY) END AND r.shift_type = 'B';\n\n### Input: Update Aarti shift tomorrow to WO\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'WO' WHERE e.name LIKE '%Aarti%' AND r.date = DATE_ADD(CURDATE(), INTERVAL 1 DAY);\n\n### Input: Change Neelkamal shift on 2025-12-05 to AWH\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'AWH' WHERE e.name LIKE '%Neelkamal%' AND r.date = '2025-12-05';\n\n### Input: Move Rajendra from morning to evening on Saturday\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'B' WHERE e.name LIKE '%Rajendra%' AND r.date = CASE WHEN WEEKDAY(CURDATE()) < 5 THEN DATE_ADD(CURDATE(), INTERVAL 5 - WEEKDAY(CURDATE()) DAY) WHEN WEEKDAY(CURDATE()) = 5 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL 12 - WEEKDAY(CURDATE()) DAY) END AND r.shift_type IN ('A', 'AWH');\n\n### DECLARATIVE STATEMENT EXAMPLES (These are UPDATE commands, not SELECT queries):\n\n### Input: Saurabh is on WO today\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'WO' WHERE e.name LIKE '%Saurabh%' AND r.date = CURDATE();\n\n### Input: Rajendra was on leave yesterday\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'L' WHERE e.name LIKE '%Rajendra%' AND r.date = DATE_SUB(CURDATE(), INTERVAL 1 DAY);\n\n### Input: Kalpesh will be on morning tomorrow\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'A' WHERE e.name LIKE '%Kalpesh%' AND r.date = DATE_ADD(CURDATE(), INTERVAL 1 DAY);\n\n### Input: Neelkamal is on evening shift on Friday\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'B' WHERE e.name LIKE '%Neelkamal%' AND r.date = CASE WHEN WEEKDAY(CURDATE()) < 4 THEN DATE_ADD(CURDATE(), INTERVAL 4 - WEEKDAY(CURDATE()) DAY) WHEN WEEKDAY(CURDATE()) = 4 THEN CURDATE() ELSE DATE_ADD(CURDATE(), INTERVAL 11 - WEEKDAY(CURDATE()) DAY) END;\n\n### Input: Aarti should be on AWH today\nOutput: UPDATE roster_automation_flow_roster r JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id SET r.shift_type = 'AWH' WHERE e.name LIKE '%Aarti%' AND r.date = CURDATE();\n\n### Input: What is the weather today?\nOutput: \n\n## Strict Boundaries and Rules\n- Output must contain only the SQL query or empty string for irrelevant questions.\n- Do not include comments or extra information.\n- For non-database related questions, output an empty string.\n- Maintain focus on roster and engineer availability queries.\n\n## User Identity & Access Control\nThe input begins with the caller's identity: \"User: <username> (Role: <role>)\".\n\nAccess rules:\n- **trainee / engineer**: SELECT is always allowed. For UPDATE, you may ONLY generate a query that references the user's OWN name in the WHERE clause (LIKE '%username%'). If the request targets someone else's record, output an empty string — do NOT generate SQL.\n- **sme / supervisor / head / admin / superadmin**: Full SELECT and UPDATE access for any employee.\n\nIf an engineer/trainee asks to modify someone else's record, respond with a polite denial (output empty string for SQL, the system will send the access-denied message).\n\n## Final Notes\n- Ensure queries are accurate and use the correct table and column names.\n- Follow MySQL best practices."
+        }
+      },
+      "id": "60d1fa80-1a20-465c-b03a-16c75cb3f6ec",
+      "name": "AI Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        16128,
+        224
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sui-001",
+              "name": "quickResponse",
+              "type": "string",
+              "value": "={{ $json.body.chatInput.trim() }}"
+            },
+            {
+              "id": "sui-002",
+              "name": "chatInput",
+              "type": "string",
+              "value": "={{ $json.body.chatInput }}"
+            },
+            {
+              "id": "sui-003",
+              "name": "sessionId",
+              "type": "string",
+              "value": "={{ $json.body.sessionId }}"
+            },
+            {
+              "id": "sui-004",
+              "name": "username",
+              "type": "string",
+              "value": "={{ $('Decode JWT').first().json.username }}"
+            },
+            {
+              "id": "sui-005",
+              "name": "userRole",
+              "type": "string",
+              "value": "={{ $('Decode JWT').first().json.highestRole }}"
+            },
+            {
+              "id": "sui-006",
+              "name": "canModifyOthers",
+              "type": "boolean",
+              "value": "={{ $('Decode JWT').first().json.canModifyOthers }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "461c18f4-b167-46f6-9291-b1020d8b8e86",
+      "name": "Set User Input",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        15472,
+        224
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ output: $json.formatted_response }) }}",
+        "options": {}
+      },
+      "id": "5cc13da5-10be-4ca7-b7ba-d3df2d7636bc",
+      "name": "Respond to Webhook Quick",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        16576,
+        16
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"output\": \"I can only assist with roster management queries such as checking schedules, shift assignments, and availability. Please ask a roster-related question.\"\n}",
+        "options": {}
+      },
+      "id": "eb7d904a-dfbe-4328-887b-d49a535dd4c6",
+      "name": "Respond to Webhook Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        17120,
+        560
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "path": "tsgchat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0a3f4f3d-beac-4bd4-ad49-34671333a1b4",
+      "name": "Serve Chat Page",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        15024,
+        16
+      ],
+      "typeVersion": 2,
+      "webhookId": "acb0ac28-5974-482f-92fc-a5503dac8a6d"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!DOCTYPE html>\r\n<html lang=\"en\">\r\n<head>\r\n  <meta charset=\"UTF-8\" />\r\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\r\n  <title>Roster Assistant</title>\r\n  <style>\r\n    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\r\n\r\n    :root {\r\n      --primary:    #4f46e5;\r\n      --primary-dk: #3730a3;\r\n      --surface:    #f8fafc;\r\n      --bg:         #ffffff;\r\n      --user-bg:    #4f46e5;\r\n      --user-fg:    #ffffff;\r\n      --bot-bg:     #f1f5f9;\r\n      --bot-fg:     #1e293b;\r\n      --border:     #e2e8f0;\r\n      --muted:      #94a3b8;\r\n      --shadow:     0 4px 24px rgba(0,0,0,.10);\r\n      --radius:     16px;\r\n    }\r\n\r\n    html, body {\r\n      height: 100%;\r\n      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;\r\n      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\r\n      display: flex;\r\n      align-items: center;\r\n      justify-content: center;\r\n    }\r\n\r\n    /* ── Shell ─────────────────────────────────────────────────────────── */\r\n    .chat-app {\r\n      width: 480px;\r\n      max-width: 98vw;\r\n      height: 680px;\r\n      max-height: 96vh;\r\n      background: var(--bg);\r\n      border-radius: var(--radius);\r\n      box-shadow: var(--shadow);\r\n      display: flex;\r\n      flex-direction: column;\r\n      overflow: hidden;\r\n    }\r\n\r\n    /* ── Header ─────────────────────────────────────────────────────────── */\r\n    .chat-header {\r\n      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dk) 100%);\r\n      color: #fff;\r\n      padding: 16px 20px;\r\n      display: flex;\r\n      align-items: center;\r\n      gap: 12px;\r\n      flex-shrink: 0;\r\n    }\r\n    .header-avatar {\r\n      width: 42px; height: 42px;\r\n      background: rgba(255,255,255,.2);\r\n      border-radius: 50%;\r\n      display: flex; align-items: center; justify-content: center;\r\n      font-size: 20px;\r\n      flex-shrink: 0;\r\n    }\r\n    .header-info { flex: 1; }\r\n    .header-name { font-weight: 700; font-size: 15px; letter-spacing: .3px; }\r\n    .header-sub  { font-size: 12px; opacity: .75; margin-top: 2px; }\r\n    .status-dot  {\r\n      width: 8px; height: 8px;\r\n      background: #4ade80;\r\n      border-radius: 50%;\r\n      box-shadow: 0 0 0 2px rgba(74,222,128,.3);\r\n    }\r\n\r\n    /* ── Messages ────────────────────────────────────────────────────────── */\r\n    .chat-messages {\r\n      flex: 1;\r\n      overflow-y: auto;\r\n      padding: 20px 16px;\r\n      display: flex;\r\n      flex-direction: column;\r\n      gap: 12px;\r\n      background: var(--surface);\r\n      scroll-behavior: smooth;\r\n    }\r\n    .chat-messages::-webkit-scrollbar { width: 4px; }\r\n    .chat-messages::-webkit-scrollbar-track { background: transparent; }\r\n    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }\r\n\r\n    /* ── Message bubbles ─────────────────────────────────────────────────── */\r\n    .msg { display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }\r\n    .msg.user { align-self: flex-end; flex-direction: row-reverse; }\r\n    .msg.bot  { align-self: flex-start; }\r\n\r\n    .msg-avatar {\r\n      width: 30px; height: 30px;\r\n      border-radius: 50%;\r\n      flex-shrink: 0;\r\n      display: flex; align-items: center; justify-content: center;\r\n      font-size: 14px;\r\n    }\r\n    .msg.bot  .msg-avatar { background: var(--primary); color: #fff; }\r\n    .msg.user .msg-avatar { background: #e2e8f0; color: var(--primary); }\r\n\r\n    .bubble {\r\n      padding: 10px 14px;\r\n      border-radius: 18px;\r\n      font-size: 14px;\r\n      line-height: 1.55;\r\n      word-break: break-word;\r\n    }\r\n    .msg.bot  .bubble {\r\n      background: var(--bot-bg);\r\n      color: var(--bot-fg);\r\n      border-bottom-left-radius: 4px;\r\n    }\r\n    .msg.user .bubble {\r\n      background: var(--user-bg);\r\n      color: var(--user-fg);\r\n      border-bottom-right-radius: 4px;\r\n    }\r\n\r\n    /* Markdown-rendered content inside bot bubbles */\r\n    .bubble strong { font-weight: 700; }\r\n    .bubble .roster-date { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 4px; display: block; }\r\n    .bubble ul { list-style: none; padding: 0; margin: 4px 0; }\r\n    .bubble ul li { padding: 1px 0 1px 12px; position: relative; }\r\n    .bubble ul li::before { content: '•'; position: absolute; left: 0; color: var(--primary); }\r\n    .bubble .shift-section { margin: 6px 0; }\r\n    .bubble .shift-label { font-weight: 700; font-size: 13px; margin-bottom: 2px; display: block; }\r\n    .bubble p { margin: 4px 0; }\r\n    .bubble p:first-child { margin-top: 0; }\r\n    .bubble p:last-child  { margin-bottom: 0; }\r\n\r\n    /* Timestamp */\r\n    .msg-meta { font-size: 10px; color: var(--muted); padding: 0 4px 2px; align-self: flex-end; }\r\n\r\n    /* ── Typing indicator ────────────────────────────────────────────────── */\r\n    .typing-indicator { display: none; }\r\n    .typing-indicator.active { display: flex; }\r\n    .typing-dots {\r\n      background: var(--bot-bg);\r\n      padding: 12px 16px;\r\n      border-radius: 18px;\r\n      border-bottom-left-radius: 4px;\r\n      display: flex; gap: 4px; align-items: center;\r\n    }\r\n    .typing-dots span {\r\n      width: 7px; height: 7px;\r\n      background: var(--muted);\r\n      border-radius: 50%;\r\n      animation: bounce 1.2s infinite;\r\n    }\r\n    .typing-dots span:nth-child(2) { animation-delay: .2s; }\r\n    .typing-dots span:nth-child(3) { animation-delay: .4s; }\r\n    @keyframes bounce {\r\n      0%, 60%, 100% { transform: translateY(0); }\r\n      30%            { transform: translateY(-6px); }\r\n    }\r\n\r\n    /* ── Quick chips ─────────────────────────────────────────────────────── */\r\n    .chip-bar {\r\n      padding: 10px 16px 6px;\r\n      display: flex;\r\n      gap: 8px;\r\n      flex-wrap: wrap;\r\n      border-top: 1px solid var(--border);\r\n      background: var(--bg);\r\n      flex-shrink: 0;\r\n    }\r\n    .chip {\r\n      padding: 5px 12px;\r\n      border-radius: 20px;\r\n      border: 1.5px solid var(--border);\r\n      background: var(--bg);\r\n      color: var(--primary);\r\n      font-size: 12px;\r\n      font-weight: 500;\r\n      cursor: pointer;\r\n      transition: all .15s;\r\n      white-space: nowrap;\r\n    }\r\n    .chip:hover { background: var(--primary); color: #fff; border-color: var(--primary); }\r\n\r\n    /* ── Input area ──────────────────────────────────────────────────────── */\r\n    .chat-input-area {\r\n      display: flex;\r\n      gap: 8px;\r\n      padding: 12px 16px;\r\n      border-top: 1px solid var(--border);\r\n      background: var(--bg);\r\n      flex-shrink: 0;\r\n    }\r\n    #userInput {\r\n      flex: 1;\r\n      padding: 10px 14px;\r\n      border: 1.5px solid var(--border);\r\n      border-radius: 24px;\r\n      font-size: 14px;\r\n      outline: none;\r\n      transition: border-color .2s;\r\n      font-family: inherit;\r\n      background: var(--surface);\r\n    }\r\n    #userInput:focus { border-color: var(--primary); background: #fff; }\r\n    #userInput::placeholder { color: var(--muted); }\r\n    #sendBtn {\r\n      width: 42px; height: 42px;\r\n      border-radius: 50%;\r\n      border: none;\r\n      background: var(--primary);\r\n      color: #fff;\r\n      cursor: pointer;\r\n      display: flex; align-items: center; justify-content: center;\r\n      flex-shrink: 0;\r\n      transition: background .2s, transform .1s;\r\n    }\r\n    #sendBtn:hover   { background: var(--primary-dk); }\r\n    #sendBtn:active  { transform: scale(.92); }\r\n    #sendBtn:disabled { background: var(--border); cursor: not-allowed; }\r\n    #sendBtn svg { width: 18px; height: 18px; }\r\n\r\n    /* ── Error banner ────────────────────────────────────────────────────── */\r\n    .error-banner {\r\n      display: none;\r\n      background: #fef2f2; color: #dc2626;\r\n      font-size: 12px;\r\n      padding: 8px 16px;\r\n      border-top: 1px solid #fecaca;\r\n      text-align: center;\r\n    }\r\n    .error-banner.show { display: block; }\r\n  </style>\r\n</head>\r\n<body>\r\n\r\n<div class=\"chat-app\">\r\n\r\n  <!-- Header -->\r\n  <div class=\"chat-header\">\r\n    <div class=\"header-avatar\">🗓️</div>\r\n    <div class=\"header-info\">\r\n      <div class=\"header-name\">Roster Assistant</div>\r\n      <div class=\"header-sub\">Ask about schedules, shifts & availability</div>\r\n    </div>\r\n    <div class=\"status-dot\" title=\"Online\"></div>\r\n  </div>\r\n\r\n  <!-- Messages -->\r\n  <div class=\"chat-messages\" id=\"messages\">\r\n    <!-- Greeting injected by JS -->\r\n    <div class=\"typing-indicator\" id=\"typingIndicator\">\r\n      <div class=\"msg-avatar\" style=\"width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;\">🤖</div>\r\n      <div class=\"typing-dots\"><span></span><span></span><span></span></div>\r\n    </div>\r\n  </div>\r\n\r\n  <!-- Error banner -->\r\n  <div class=\"error-banner\" id=\"errorBanner\">\r\n    ⚠️ Could not reach the server. Please check your connection and try again.\r\n  </div>\r\n\r\n  <!-- Quick chips -->\r\n  <div class=\"chip-bar\">\r\n    <button class=\"chip\" onclick=\"sendChip(this)\">Today's Roster</button>\r\n    <button class=\"chip\" onclick=\"sendChip(this)\">Tomorrow's Roster</button>\r\n    <button class=\"chip\" onclick=\"sendChip(this)\">Who's on Leave?</button>\r\n    <button class=\"chip\" onclick=\"sendChip(this)\">Morning Shift Today</button>\r\n    <button class=\"chip\" onclick=\"sendChip(this)\">Evening Shift Today</button>\r\n  </div>\r\n\r\n  <!-- Input -->\r\n  <div class=\"chat-input-area\">\r\n    <input\r\n      id=\"userInput\"\r\n      type=\"text\"\r\n      placeholder=\"Ask about roster, shifts, availability…\"\r\n      autocomplete=\"off\"\r\n    />\r\n    <button id=\"sendBtn\" title=\"Send\">\r\n      <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\r\n        <line x1=\"22\" y1=\"2\" x2=\"11\" y2=\"13\"/><polygon points=\"22 2 15 22 11 13 2 9 22 2\"/>\r\n      </svg>\r\n    </button>\r\n  </div>\r\n</div>\r\n\r\n<script>\r\n  // ── Config ──────────────────────────────────────────────────────────────────\r\n  const WEBHOOK_URL = 'https://n8n.captainparth.com/webhook/tsgchat';\r\n  // JWT injected by TSG Launcher via ?token=<jwt>\r\n  const token = new URLSearchParams(window.location.search).get('token') || '';\r\n\r\n  // ── Session ID (persists for browser tab lifetime) ──────────────────────────\r\n  let sessionId;\r\n  try {\r\n    sessionId = sessionStorage.getItem('rosterSessionId');\r\n    if (!sessionId) {\r\n      sessionId = 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);\r\n      sessionStorage.setItem('rosterSessionId', sessionId);\r\n    }\r\n  } catch(e) {\r\n    // Fallback for sandboxed contexts (e.g. served from n8n)\r\n    sessionId = 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);\r\n  }\r\n\r\n  // ── DOM refs ─────────────────────────────────────────────────────────────────\r\n  const messagesEl  = document.getElementById('messages');\r\n  const inputEl     = document.getElementById('userInput');\r\n  const sendBtn     = document.getElementById('sendBtn');\r\n  const typingEl    = document.getElementById('typingIndicator');\r\n  const errorBanner = document.getElementById('errorBanner');\r\n\r\n  // ── Markdown renderer (handles bold, bullets, line breaks) ──────────────────\r\n  function renderMarkdown(text) {\r\n    // Escape HTML first\r\n    let html = text\r\n      .replace(/&/g, '&amp;')\r\n      .replace(/</g, '&lt;')\r\n      .replace(/>/g, '&gt;');\r\n\r\n    // **bold**\r\n    html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\r\n\r\n    // Convert lines starting with \"   • \" or \"• \" to list items\r\n    const lines = html.split('\\n');\r\n    let inList = false;\r\n    const parts = [];\r\n    for (const line of lines) {\r\n      const isBullet = /^\\s*[•\\-]\\s+/.test(line);\r\n      if (isBullet) {\r\n        if (!inList) { parts.push('<ul>'); inList = true; }\r\n        parts.push('<li>' + line.replace(/^\\s*[•\\-]\\s+/, '') + '</li>');\r\n      } else {\r\n        if (inList) { parts.push('</ul>'); inList = false; }\r\n        parts.push(line);\r\n      }\r\n    }\r\n    if (inList) parts.push('</ul>');\r\n\r\n    // Join and wrap blank-line-separated blocks in <p>\r\n    html = parts.join('\\n');\r\n    html = html.replace(/\\n{2,}/g, '</p><p>');\r\n    html = html.replace(/\\n/g, '<br>');\r\n    html = '<p>' + html + '</p>';\r\n\r\n    // Clean up empty paragraphs\r\n    html = html.replace(/<p>\\s*<\\/p>/g, '');\r\n\r\n    return html;\r\n  }\r\n\r\n  // ── Append a message bubble ──────────────────────────────────────────────────\r\n  function appendMessage(role, text) {\r\n    const isUser = role === 'user';\r\n    const now    = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });\r\n\r\n    const wrapper = document.createElement('div');\r\n    wrapper.className = 'msg ' + role;\r\n\r\n    const avatar = document.createElement('div');\r\n    avatar.className = 'msg-avatar';\r\n    avatar.textContent = isUser ? '👤' : '🤖';\r\n\r\n    const bubble = document.createElement('div');\r\n    bubble.className = 'bubble';\r\n    if (isUser) {\r\n      bubble.textContent = text;\r\n    } else {\r\n      bubble.innerHTML = renderMarkdown(text);\r\n    }\r\n\r\n    const meta = document.createElement('div');\r\n    meta.className = 'msg-meta';\r\n    meta.textContent = now;\r\n\r\n    if (isUser) {\r\n      wrapper.append(meta, bubble, avatar);\r\n    } else {\r\n      wrapper.append(avatar, bubble, meta);\r\n    }\r\n\r\n    // Insert before typing indicator\r\n    messagesEl.insertBefore(wrapper, typingEl);\r\n    scrollBottom();\r\n  }\r\n\r\n  function scrollBottom() {\r\n    messagesEl.scrollTop = messagesEl.scrollHeight;\r\n  }\r\n\r\n  // ── Show / hide typing indicator ─────────────────────────────────────────────\r\n  function setTyping(on) {\r\n    typingEl.classList.toggle('active', on);\r\n    sendBtn.disabled = on;\r\n    if (on) scrollBottom();\r\n  }\r\n\r\n  // ── Send message to n8n ──────────────────────────────────────────────────────\r\n  async function sendMessage(text) {\r\n    if (!text.trim()) return;\r\n\r\n    errorBanner.classList.remove('show');\r\n    appendMessage('user', text);\r\n    inputEl.value = '';\r\n    setTyping(true);\r\n\r\n    try {\r\n      const res = await fetch(WEBHOOK_URL, {\r\n        method:  'POST',\r\n        headers: { 'Content-Type': 'application/json' },\r\n        body:    JSON.stringify({\r\n          action:    'sendMessage',\r\n          sessionId: sessionId,\r\n          chatInput: text,\r\n          token:     token\r\n        })\r\n      });\r\n\r\n      if (!res.ok) throw new Error('HTTP ' + res.status);\r\n\r\n      const data = await res.json();\r\n      // n8n returns { output: \"...\" } from all our Respond to Webhook nodes\r\n      const reply = data.output || data.text || data.message || JSON.stringify(data);\r\n      appendMessage('bot', reply);\r\n    } catch (err) {\r\n      console.error(err);\r\n      errorBanner.classList.add('show');\r\n      appendMessage('bot', '⚠️ Sorry, I couldn\\'t reach the server right now. Please try again.');\r\n    } finally {\r\n      setTyping(false);\r\n      inputEl.focus();\r\n    }\r\n  }\r\n\r\n  // ── Quick chip handler ────────────────────────────────────────────────────────\r\n  function sendChip(btn) {\r\n    sendMessage(btn.textContent);\r\n  }\r\n\r\n  // ── Event listeners ───────────────────────────────────────────────────────────\r\n  sendBtn.addEventListener('click', () => sendMessage(inputEl.value));\r\n  inputEl.addEventListener('keydown', (e) => {\r\n    if (e.key === 'Enter' && !e.shiftKey) {\r\n      e.preventDefault();\r\n      sendMessage(inputEl.value);\r\n    }\r\n  });\r\n\r\n  // ── Initial greeting (no network call needed — matches our workflow response) ──\r\n  appendMessage('bot', 'Hi 👋, how can I help you today?\\n\\nI can help you with:\\n• Checking today\\'s or tomorrow\\'s roster\\n• Finding who\\'s on morning or evening shift\\n• Checking who\\'s on leave or weekly off\\n• Updating shift assignments\\n\\nJust ask in plain English!');\r\n  inputEl.focus();\r\n</script>\r\n\r\n</body>\r\n</html>\r\n",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0178acd4-8354-4f04-9481-57af24b17df7",
+      "name": "Respond with Chat Page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        15264,
+        16
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── JWT Decode ─────────────────────────────────────────────────────────────\n// Decodes the Bearer token passed in the POST body without a network call.\n// Extracts: username, role, expiry.  The token signature was already validated\n// by FastAPI at login time, so local decode is safe here.\n\nconst ROLE_LEVELS = {\n  trainee: 1, engineer: 2, sme: 3, supervisor: 4,\n  head: 5, admin: 6, superadmin: 7\n};\n\nconst body  = $input.first().json.body || {};\nconst token = body.token || '';\n\nconst DENIED = (reason) => [{\n  json: {\n    authValid: false, reason,\n    username: '', name: '', groups: [], highestRole: 'unknown',\n    roleLevel: 0, canModifyOthers: false, body\n  }\n}];\n\nif (!token) return DENIED('No token provided');\n\ntry {\n  const parts = token.split('.');\n  if (parts.length !== 3) return DENIED('Invalid JWT format');\n\n  function b64urlDecode(str) {\n    str = str.replace(/-/g, '+').replace(/_/g, '/');\n    while (str.length % 4) str += '=';\n    return Buffer.from(str, 'base64').toString('utf8');\n  }\n\n  const payload = JSON.parse(b64urlDecode(parts[1]));\n\n  // Expiry check\n  const nowSec = Math.floor(Date.now() / 1000);\n  if (payload.exp && payload.exp < nowSec) return DENIED('Token expired');\n\n  const username  = payload.preferred_username || payload.sub || '';\n  const name      = payload.name || username;\n  const groups    = (payload.groups || []).map(g => g.toLowerCase());\n  const roleLevel = groups.length > 0\n    ? Math.max(...groups.map(g => ROLE_LEVELS[g] || 0))\n    : 0;\n  const highestRole     = Object.entries(ROLE_LEVELS).find(([,v]) => v === roleLevel)?.[0] || 'unknown';\n  const canModifyOthers = roleLevel >= 3; // sme and above\n\n  return [{ json: { authValid: true, username, name, groups, roleLevel, highestRole, canModifyOthers, body } }];\n\n} catch (e) {\n  return DENIED(e.message);\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15152,
+        320
+      ],
+      "id": "d1e2f3a4-b5c6-7890-abcd-ef1234567890",
+      "name": "Decode JWT"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "auth-guard-001",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.authValid }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        15312,
+        320
+      ],
+      "id": "e2f3a4b5-c6d7-8901-bcde-f12345678901",
+      "name": "Auth Guard"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"output\": \"⛔ Access denied. Your session has expired or is invalid. Please restart the app to re-authenticate.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        15472,
+        500
+      ],
+      "id": "f3a4b5c6-d7e8-9012-cdef-123456789012",
+      "name": "Respond Unauthorized"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Permission Gate ─────────────────────────────────────────────────────────\n// Enforces role-based access before any SQL is executed.\n//\n// Rules:\n//   SELECT  → all roles allowed\n//   UPDATE  → sme / supervisor / head / admin / superadmin: unrestricted\n//   UPDATE  → engineer / trainee: only WHERE clause targets own username\n//   other   → blocked (shouldn't reach here, but safeguard)\n\nconst sqlQuery        = ($json.output || '').trim();\nconst username        = ($('Set User Input').first().json.username || '').toLowerCase();\nconst roleLevel       = $('Decode JWT').first().json.roleLevel || 0;\nconst canModifyOthers = !!$('Set User Input').first().json.canModifyOthers;\nconst userRole        = $('Set User Input').first().json.userRole || 'unknown';\n\nif (!sqlQuery) {\n  return [{ json: { allowed: true, output: sqlQuery, permDenied: false } }];\n}\n\nconst upperSQL = sqlQuery.toUpperCase().trim();\n\n// SELECT — always allowed\nif (upperSQL.startsWith('SELECT')) {\n  return [{ json: { allowed: true, output: sqlQuery, permDenied: false } }];\n}\n\n// UPDATE — role check\nif (upperSQL.startsWith('UPDATE')) {\n  // sme+ can modify any record\n  if (canModifyOthers) {\n    return [{ json: { allowed: true, output: sqlQuery, permDenied: false } }];\n  }\n  // engineer/trainee — own record only\n  if (roleLevel >= 1 && username && sqlQuery.toLowerCase().includes(username)) {\n    return [{ json: { allowed: true, output: sqlQuery, permDenied: false } }];\n  }\n  // engineer/trainee trying to modify someone else\n  return [{ json: {\n    allowed: false, output: sqlQuery, permDenied: true,\n    denyReason:\n      `⛔ **Permission Denied**\\n\\nAs a **${userRole}**, you can only modify your own roster entries.\\n` +\n      `To update another team member's roster, please contact your supervisor.`\n  }}];\n}\n\n// Anything else\nreturn [{ json: {\n  allowed: false, output: sqlQuery, permDenied: true,\n  denyReason: '⛔ **Access Denied**\\n\\nThis operation is not permitted for your role.'\n}}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16900,
+        272
+      ],
+      "id": "a4b5c6d7-e8f9-0123-defa-234567890123",
+      "name": "Permission Gate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "perm-check-001",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.allowed }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        17040,
+        272
+      ],
+      "id": "b5c6d7e8-f9a0-1234-efab-345678901234",
+      "name": "Permission Allowed?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ output: $json.denyReason || '⛔ You do not have permission to perform this operation.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        17200,
+        480
+      ],
+      "id": "c6d7e8f9-a0b1-2345-fabc-456789012345",
+      "name": "Respond Permission Denied"
+    }
+  ],
+  "pinData": {
+    "Serve Chat Page": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.captainparth.com",
+            "user-agent": "Mozilla/5.0 (Linux; Android 15; sdk_gphone64_x86_64 Build/AE3A.240806.043; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.219 Mobile Safari/537.36",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "152.59.97.5",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9f54ae4849ea90f1-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "60479693-fc28-4304-b55b-8e75531e9756",
+            "connection": "keep-alive",
+            "priority": "u=0, i",
+            "sec-ch-ua": "\"Chromium\";v=\"124\", \"Android WebView\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?1",
+            "sec-ch-ua-platform": "\"Android\"",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "upgrade-insecure-requests": "1",
+            "x-forwarded-for": "152.59.97.5",
+            "x-forwarded-proto": "https",
+            "x-requested-with": "com.tsgapp.tsg_launcher"
+          },
+          "params": {},
+          "query": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwicHJlZmVycmVkX3VzZXJuYW1lIjoibmVlbCIsImVtYWlsIjoibmVlbGthbWFsLnZvaHJhQGdtYWlsLmNvbSIsIm5hbWUiOiJOZWVsIiwiZ3JvdXBzIjpbInNtZSJdLCJleHAiOjE3Nzc3MDE3ODN9.z1NW-PHcJxciP0Sro2JvA1ioM-cmTsrPNWgKorlFa6I"
+          },
+          "body": {},
+          "webhookUrl": "https://n8n.captainparth.com/webhook/tsgchat",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Decode JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Set User Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond With Initial Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set User Input": {
+      "main": [
+        [
+          {
+            "node": "Check Quick Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Quick Response": {
+      "main": [
+        [
+          {
+            "node": "Has Quick Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Quick Match?": {
+      "main": [
+        [
+          {
+            "node": "Execute Quick SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Quick SQL": {
+      "main": [
+        [
+          {
+            "node": "Format Quick Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Quick Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook Quick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Is query valid and executable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is query valid and executable?": {
+      "main": [
+        [
+          {
+            "node": "Permission Gate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute SQL query": {
+      "main": [
+        [
+          {
+            "node": "Response Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response Formatter": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response Formatter Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Response Formatter",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serve Chat Page": {
+      "main": [
+        [
+          {
+            "node": "Respond with Chat Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode JWT": {
+      "main": [
+        [
+          {
+            "node": "Auth Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Guard": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permission Gate": {
+      "main": [
+        [
+          {
+            "node": "Permission Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permission Allowed?": {
+      "main": [
+        [
+          {
+            "node": "Execute SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Permission Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3659a215-d40f-4c3f-abaa-f07928a13b07",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d10d09f118527a80b7986709f764d39440903a271990b0b8458414a3ab85c79f"
+  },
+  "id": "gI9MLbygaRRumZKj",
+  "tags": []
+}

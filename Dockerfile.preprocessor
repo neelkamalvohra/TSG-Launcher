@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+# Install OpenCV system dependencies (minimal set for headless operation)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libgl1 \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    opencv-python-headless==4.10.0.84 \
+    numpy==1.26.4 \
+    flask==3.0.3
+
+WORKDIR /app
+
+COPY preprocessor_service.py .
+
+EXPOSE 8765
+
+# Healthcheck so docker-compose / n8n can wait until the service is ready
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')" || exit 1
+
+CMD ["python3", "preprocessor_service.py"]

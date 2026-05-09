@@ -1,0 +1,436 @@
+{
+  "name": "DisplayPanel-Webhook_1.2",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Get roster data from MySQL query\nconst rosterData = $input.all();\n\nconst currentDateTime = new Date().toISOString();\n\n// Filter out non-data rows (SET statement results have no id/date)\nconst engineers = rosterData\n  .filter(item => item.json.id != null && item.json.date != null)\n  .map(item => ({\n    id: item.json.id,\n    employee_name: item.json.employee_name || '',\n    role: item.json.role || '',\n    shift: item.json.shift || '',\n    date: item.json.date.split('T')[0]\n  }));\n\nconst response = {\n  symbol: 'ROSTER',\n  name: 'Daily-Roster',\n  datetime: currentDateTime,\n  engineers: engineers\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "a852a2df-bf0f-476a-86c7-25c592fa1db2",
+      "name": "Parse JSON for Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        3568
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "functionCode": "const validSymbols = ['5G', 'FIBER', 'IOT', 'SUB6', 'UBR', '4G', 'ROSTER'];\nconst apiKey = $json.query.apikey;\nconst symbol = $json.query.symbol;\n\nif (apiKey !== 'e03fc53524454ab8b65d91b23c669cc5') {\n  throw new Error('Unauthorized API Key');\n}\n\nif (!validSymbols.includes(symbol)) {\n  return [{\n    json: {\n      detail: `Invalid symbol: ${symbol}. Choose from {'5G', 'FIBER', 'IOT', 'SUB6', 'UBR', '4G', 'ROSTER'}`\n    }\n  }];\n}\n\nreturn [{ json: { symbol } }];"
+      },
+      "id": "1eee62e3-31a0-4304-b589-2a95fad33538",
+      "name": "Validate API Key & Symbol",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        464,
+        3824
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SET time_zone = '+05:30';\nSELECT \n  r.id,\n  e.name as employee_name,\n  e.role,\n  r.shift_type as shift,\n  r.date\nFROM roster_automation_flow_roster r\nINNER JOIN roster_automation_flow_engineers e ON r.engineer_id = e.id\nWHERE DATE(r.date) = CURDATE()\nORDER BY r.id ASC;",
+        "options": {}
+      },
+      "id": "30fa7256-6482-4fdf-9baa-27a42c20f6a9",
+      "name": "Get Today's Roster",
+      "type": "n8n-nodes-base.mySql",
+      "position": [
+        1344,
+        3568
+      ],
+      "typeVersion": 2.5,
+      "credentials": {
+        "mySql": {
+          "id": "hcxgwN0i4subJ1Ue",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.symbol.toString('utf-8');\nreturn [{ raw }];"
+      },
+      "id": "17b01522-b480-4d55-a456-ff2c3e416728",
+      "name": "Get Symbol",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        672,
+        3824
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3765ec20-36d5-4fa8-b621-31213503a611",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "ROSTER"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "97b71894-889f-4cc4-9b72-7dee64353806",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "UBR"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5d038704-6f6c-46a8-9954-09c950dbae2b",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "SUB6"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "cde4aab0-0c78-4d73-ae45-fa948469d002",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "FIBER"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "e7e560e0-3e6c-42ca-bfa4-4adef4bdc374",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "5G"
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "117d801c-a5ac-41bb-b9d1-bef8d87388d8",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.raw }}",
+                    "rightValue": "4G"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "64dc25f6-c086-4c63-bf1f-1adfdb886b17",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        832,
+        3824
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "path": "tsglauncher",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "4024225f-5c42-4e6c-8cb5-b58735256f76",
+      "name": "Display Fetch Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        3824
+      ],
+      "webhookId": "620bd9fa-aff5-49cf-8617-de984498793c",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get UBR statistics from MySQL query\nconst data = $input.first().json;\n\n// Calculate percent change\nconst today = parseInt(data.today) || 100;\nconst yesterday = parseInt(data.yesterday) || 200;\nlet percentChange = '';\n\nif (yesterday > 0) {\n  const change = ((today - yesterday) / yesterday) * 100;\n  percentChange = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;\n}\n\n// Create the response in the requested format\nconst response = {\n  symbol: 'UBR',\n  name: 'AirFiber-UBR',\n  datetime: new Date().toISOString(),\n  today: today.toString(),\n  yesterday: yesterday.toString(),\n  overall: (parseInt(data.overall) || 300).toString(),\n  percent_change: percentChange,\n  last_week: {\n    low: (parseInt(data.week_low) || 800).toString(),\n    high: (parseInt(data.week_high) || 1000).toString()\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "997d7cc3-1aca-48af-8c37-3d2966795260",
+      "name": "Format UBR Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        3792
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get UBR statistics from MySQL query\nconst data = $input.first().json;\n\n// Calculate percent change\nconst today = parseInt(data.today) || 100;\nconst yesterday = parseInt(data.yesterday) || 200;\nlet percentChange = '';\n\nif (yesterday > 0) {\n  const change = ((today - yesterday) / yesterday) * 100;\n  percentChange = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;\n}\n\n// Create the response in the requested format\nconst response = {\n  symbol: 'SUB6',\n  name: 'AirFiber-SUB6',\n  datetime: new Date().toISOString(),\n  today: today.toString(),\n  yesterday: yesterday.toString(),\n  overall: (parseInt(data.overall) || 300).toString(),\n  percent_change: percentChange,\n  last_week: {\n    low: (parseInt(data.week_low) || 800).toString(),\n    high: (parseInt(data.week_high) || 1000).toString()\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "411c7b10-5ad9-4c4a-91ab-b2da05d0cb88",
+      "name": "Format SUB6 Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        3968
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get UBR statistics from MySQL query\nconst data = $input.first().json;\n\n// Calculate percent change\nconst today = parseInt(data.today) || 100;\nconst yesterday = parseInt(data.yesterday) || 200;\nlet percentChange = '';\n\nif (yesterday > 0) {\n  const change = ((today - yesterday) / yesterday) * 100;\n  percentChange = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;\n}\n\n// Create the response in the requested format\nconst response = {\n  symbol: 'FIBER',\n  name: 'JioFiber',\n  datetime: new Date().toISOString(),\n  today: today.toString(),\n  yesterday: yesterday.toString(),\n  overall: (parseInt(data.overall) || 300).toString(),\n  percent_change: percentChange,\n  last_week: {\n    low: (parseInt(data.week_low) || 800).toString(),\n    high: (parseInt(data.week_high) || 1000).toString()\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "0a78edaf-b2d6-47ed-80c0-f7339546ffe4",
+      "name": "Format FIBER Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        4176
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get UBR statistics from MySQL query\nconst data = $input.first().json;\n\n// Calculate percent change\nconst today = parseInt(data.today) || 100;\nconst yesterday = parseInt(data.yesterday) || 200;\nlet percentChange = '';\n\nif (yesterday > 0) {\n  const change = ((today - yesterday) / yesterday) * 100;\n  percentChange = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;\n}\n\n// Create the response in the requested format\nconst response = {\n  symbol: '5G',\n  name: 'Mobility-5G',\n  datetime: new Date().toISOString(),\n  today: today.toString(),\n  yesterday: yesterday.toString(),\n  overall: (parseInt(data.overall) || 300).toString(),\n  percent_change: percentChange,\n  last_week: {\n    low: (parseInt(data.week_low) || 800).toString(),\n    high: (parseInt(data.week_high) || 1000).toString()\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "c9c3440e-3799-420f-888c-1054de62cb56",
+      "name": "Format 5G Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        4352
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get UBR statistics from MySQL query\nconst data = $input.first().json;\n\n// Calculate percent change\nconst today = parseInt(data.today) || 100;\nconst yesterday = parseInt(data.yesterday) || 200;\nlet percentChange = '';\n\nif (yesterday > 0) {\n  const change = ((today - yesterday) / yesterday) * 100;\n  percentChange = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;\n}\n\n// Create the response in the requested format\nconst response = {\n  symbol: '4G',\n  name: 'Mobility-4G',\n  datetime: new Date().toISOString(),\n  today: today.toString(),\n  yesterday: yesterday.toString(),\n  overall: (parseInt(data.overall) || 300).toString(),\n  percent_change: percentChange,\n  last_week: {\n    low: (parseInt(data.week_low) || 800).toString(),\n    high: (parseInt(data.week_high) || 1000).toString()\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "74dec186-6cd6-445c-995f-c469981998c9",
+      "name": "Format 4G Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1552,
+        4544
+      ],
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "Display Fetch Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.captainparth.com",
+            "user-agent": "ESP32HTTPClient",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "152.58.1.212",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9b8b54c0a9844b6d-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "7c76b08b-4ddb-46e7-8ad4-01b3f57674e0",
+            "connection": "keep-alive",
+            "x-forwarded-for": "152.58.1.212",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {
+            "apikey": "e03fc53524454ab8b65d91b23c669cc5",
+            "symbol": "4G"
+          },
+          "webhookUrl": "https://n8n.captainparth.com/webhook/deskmate1",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Validate API Key & Symbol": {
+      "main": [
+        [
+          {
+            "node": "Get Symbol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today's Roster": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON for Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Symbol": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get Today's Roster",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format UBR Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format SUB6 Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format FIBER Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format 5G Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format 4G Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Display Fetch Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate API Key & Symbol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a7d71fbf-ba7b-44dc-b19c-4ca00c008e08",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8481509d84164d2f244674377f4923a4043d0ccb44373b5aa77483b2ea4515d7"
+  },
+  "id": "2Pf7jIJ3QCTQUOFx",
+  "tags": []
+}

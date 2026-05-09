@@ -1,0 +1,56 @@
+# docker-compose.tsg-auth.yml
+# Deploy this file + the tsg_auth/ folder to the Raspberry Pi.
+# Run: docker compose -f docker-compose.tsg-auth.yml up -d --build
+
+networks:
+  tsg_net:
+    driver: bridge
+
+services:
+
+  postgres_tsg_auth:
+    image: postgres:16-alpine
+    container_name: postgres_tsg_auth
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${TSG_AUTH_PG_USER:-tsg_auth}
+      - POSTGRES_PASSWORD=${TSG_AUTH_PG_PASSWORD}
+      - POSTGRES_DB=${TSG_AUTH_PG_DB:-tsg_auth}
+      - TZ=${TZ:-Asia/Calcutta}
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./volumes/postgres_tsg_auth:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${TSG_AUTH_PG_USER:-tsg_auth} -d ${TSG_AUTH_PG_DB:-tsg_auth}']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tsg_net
+
+  tsg_auth:
+    build: ./tsg_auth
+    container_name: tsg_auth
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres_tsg_auth:
+        condition: service_healthy
+    environment:
+      - TSG_AUTH_DATABASE_URL=postgresql://${TSG_AUTH_PG_USER:-tsg_auth}:${TSG_AUTH_PG_PASSWORD}@postgres_tsg_auth:5432/${TSG_AUTH_PG_DB:-tsg_auth}
+      - TSG_AUTH_JWT_SECRET=${TSG_AUTH_JWT_SECRET}
+      - TSG_AUTH_INIT_SUPERADMIN_USERNAME=${TSG_AUTH_INIT_SUPERADMIN_USERNAME:-superadmin}
+      - TSG_AUTH_INIT_SUPERADMIN_PASSWORD=${TSG_AUTH_INIT_SUPERADMIN_PASSWORD}
+      - TSG_AUTH_INIT_SUPERADMIN_EMAIL=${TSG_AUTH_INIT_SUPERADMIN_EMAIL:-superadmin@tsg.local}
+      - TZ=${TZ:-Asia/Calcutta}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - tsg_net
