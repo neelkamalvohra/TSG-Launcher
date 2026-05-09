@@ -80,26 +80,12 @@ class TilesScreen extends ConsumerStatefulWidget {
 
 class _TilesScreenState extends ConsumerState<TilesScreen> {
   Timer? _retryTimer;
-  Timer? _clockTimer;
   List<String>? _orderedPks;
-  late DateTime _clockNow;
 
   @override
   void initState() {
     super.initState();
     _loadOrder();
-    _clockNow = DateTime.now();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _clockNow = DateTime.now());
-    });
-  }
-
-  String _formatClock(DateTime d) {
-    final h    = d.hour > 12 ? d.hour - 12 : (d.hour == 0 ? 12 : d.hour);
-    final m    = d.minute.toString().padLeft(2, '0');
-    final s    = d.second.toString().padLeft(2, '0');
-    final ampm = d.hour >= 12 ? 'PM' : 'AM';
-    return '$h:$m:$s $ampm';
   }
 
   void _startAutoRetry() {
@@ -117,7 +103,6 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
   @override
   void dispose() {
     _retryTimer?.cancel();
-    _clockTimer?.cancel();
     super.dispose();
   }
 
@@ -199,32 +184,52 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
     _saveOrder(newTiles);
   }
 
-  // ── Tile grid: IntrinsicHeight rows (uniform per-row heights) + drag-drop ─
-  // tileWidth is computed by the outer LayoutBuilder (avoids nesting
-  // LayoutBuilder inside IntrinsicHeight, which is unsupported in Flutter).
+  // ── Tile grid: roster tile renders 2×2, all others in normal rows ─────────
+  // Roster tile spans full-width × double-height (2 columns × 2 rows).
+  // availableWidth is the screen width passed by the outer LayoutBuilder.
   Widget _buildTileGrid(
       List<TileModel> tiles, int cols, double availableWidth, BuildContext context) {
-    // availableWidth is the ListView's content width (screen width minus padding).
-    final tileWidth = (availableWidth - (cols - 1) * 14.0) / cols;
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-      itemCount: (tiles.length + cols - 1) ~/ cols,
-      itemBuilder: (_, rowIndex) {
-        final start = rowIndex * cols;
-        final end = min(start + cols, tiles.length);
-        final rowTiles = tiles.sublist(start, end);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+    const spacing = 14.0;
+    final tileWidth = (availableWidth - (cols - 1) * spacing) / cols;
+    final rosterH   = tileWidth * 2 + spacing; // 2 rows + 1 gap
+
+    final items = <Widget>[];
+    int i = 0;
+
+    while (i < tiles.length) {
+      final tile = tiles[i];
+
+      if (tile.quickPanel == 'roster') {
+        // ── Full-width, double-height roster tile ────────────────────
+        items.add(Padding(
+          padding: const EdgeInsets.only(bottom: spacing),
+          child: SizedBox(
+            height: rosterH,
+            child: _buildDraggableTile(tiles, i, availableWidth, context),
+          ),
+        ));
+        i++;
+      } else {
+        // ── Normal row: up to `cols` non-roster tiles ────────────────
+        final rowIdx = <int>[];
+        while (i < tiles.length &&
+               rowIdx.length < cols &&
+               tiles[i].quickPanel != 'roster') {
+          rowIdx.add(i);
+          i++;
+        }
+        items.add(Padding(
+          padding: const EdgeInsets.only(bottom: spacing),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (int i = 0; i < cols; i++) ...[
-                  if (i > 0) const SizedBox(width: 14),
-                  if (i < rowTiles.length)
+                for (int j = 0; j < cols; j++) ...[
+                  if (j > 0) const SizedBox(width: spacing),
+                  if (j < rowIdx.length)
                     Expanded(
                       child: _buildDraggableTile(
-                          tiles, start + i, tileWidth, context),
+                          tiles, rowIdx[j], tileWidth, context),
                     )
                   else
                     const Expanded(child: SizedBox()),
@@ -232,8 +237,13 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
               ],
             ),
           ),
-        );
-      },
+        ));
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      children: items,
     );
   }
 
@@ -332,32 +342,16 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
             children: [
               const Icon(Icons.cell_tower, color: _accentLt, size: 20),
               const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'TSG Launcher',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      _formatClock(_clockNow),
-                      style: const TextStyle(
-                        color: Color(0xFF8AAFD4),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.4,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
+              const Flexible(
+                child: Text(
+                  'TSG Launcher',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ],

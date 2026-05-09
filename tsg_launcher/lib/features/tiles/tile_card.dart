@@ -2,8 +2,20 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/models/tile_model.dart';
 import 'tile_quickinfo_provider.dart';
+
+// ── Local SVG icon map (slug → asset path) ────────────────────────────────────
+// Keys are matched against tile.slug first, then against a normalised tile.name.
+const _localIcons = <String, String>{
+  'quick-response':  'assets/icons/quick_response.svg',
+  'quick_response':  'assets/icons/quick_response.svg',
+  'roster-edit':     'assets/icons/roster_edit.svg',
+  'roster_edit':     'assets/icons/roster_edit.svg',
+  'roster-upload':   'assets/icons/roster_upload.svg',
+  'roster_upload':   'assets/icons/roster_upload.svg',
+};
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const _cardBorder = Color(0xFF1E3F74);
@@ -153,6 +165,16 @@ class _DefaultContent extends StatelessWidget {
 
   Widget _icon() {
     const sz = 60.0;
+
+    // 1. Local SVG by slug
+    final slugKey  = tile.slug.toLowerCase();
+    final nameKey  = tile.name.toLowerCase().replaceAll(' ', '-');
+    final svgAsset = _localIcons[slugKey] ?? _localIcons[nameKey];
+    if (svgAsset != null) {
+      return SvgPicture.asset(svgAsset, width: sz, height: sz);
+    }
+
+    // 2. Remote URL
     if (tile.iconUrl != null && tile.iconUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -160,6 +182,8 @@ class _DefaultContent extends StatelessWidget {
           fit: BoxFit.contain, errorWidget: (_, __, ___) => _fallback(sz)),
       );
     }
+
+    // 3. Generic fallback
     return _fallback(sz);
   }
 
@@ -369,7 +393,7 @@ class _RosterPanelState extends State<_RosterPanel> {
             ],
           ]),
           const SizedBox(height: 8),
-          ...onDuty.take(6).map(_personRow),
+          ...onDuty.take(8).map(_personRow),
           if (woList.isNotEmpty || leave.isNotEmpty) ...[
             const SizedBox(height: 4),
             GestureDetector(
