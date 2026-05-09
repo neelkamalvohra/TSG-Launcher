@@ -80,12 +80,26 @@ class TilesScreen extends ConsumerStatefulWidget {
 
 class _TilesScreenState extends ConsumerState<TilesScreen> {
   Timer? _retryTimer;
+  Timer? _clockTimer;
   List<String>? _orderedPks;
+  late DateTime _clockNow;
 
   @override
   void initState() {
     super.initState();
     _loadOrder();
+    _clockNow = DateTime.now();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _clockNow = DateTime.now());
+    });
+  }
+
+  String _formatClock(DateTime d) {
+    final h    = d.hour > 12 ? d.hour - 12 : (d.hour == 0 ? 12 : d.hour);
+    final m    = d.minute.toString().padLeft(2, '0');
+    final s    = d.second.toString().padLeft(2, '0');
+    final ampm = d.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m:$s $ampm';
   }
 
   void _startAutoRetry() {
@@ -103,6 +117,7 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _clockTimer?.cancel();
     super.dispose();
   }
 
@@ -317,16 +332,32 @@ class _TilesScreenState extends ConsumerState<TilesScreen> {
             children: [
               const Icon(Icons.cell_tower, color: _accentLt, size: 20),
               const SizedBox(width: 8),
-              const Flexible(
-                child: Text(
-                  'TSG Launcher',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    letterSpacing: 0.5,
-                  ),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'TSG Launcher',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      _formatClock(_clockNow),
+                      style: const TextStyle(
+                        color: Color(0xFF8AAFD4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.4,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
