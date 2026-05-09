@@ -364,7 +364,8 @@ class _RosterPanelState extends State<_RosterPanel> {
     final woList = widget.info.woList;
     final leave  = widget.info.leaveList;
 
-    return Padding(
+    return ClipRect(
+      child: Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       child: Column(
         mainAxisSize: MainAxisSize.max,
@@ -398,10 +399,9 @@ class _RosterPanelState extends State<_RosterPanel> {
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Person rows — flex-shrinks so WO section always has room
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
+                // Person rows — Expanded forces tight fit; ClipRect silences any overflow
+                Expanded(
+                  child: ClipRect(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,7 +460,7 @@ class _RosterPanelState extends State<_RosterPanel> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _statPill(String label, Color text, Color bg, Color border) =>
